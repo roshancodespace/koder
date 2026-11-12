@@ -952,12 +952,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Computers (Windows, Mac, Linux) do not accept direct incoming connection requests from Bluetooth keyboards for OS security.',
+              'Computers (Windows, Mac, Linux) manage Bluetooth keyboard connections as the host. If direct connection from the phone was rejected:',
               style: TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 12),
             Text(
-              'How to connect properly:\n1. Tap "Expose Phone" below to put phone in Pairing Mode.\n2. On your computer, open Bluetooth Settings.\n3. Click "${activeSpoof.deviceName}" in the devices list to connect.',
+              'Options:\n1. If already paired: Open your computer\'s Bluetooth Settings and click "Connect" on "${activeSpoof.deviceName}".\n2. If not paired or re-pairing: Tap "Expose Phone" below and pair with "${activeSpoof.deviceName}".',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,

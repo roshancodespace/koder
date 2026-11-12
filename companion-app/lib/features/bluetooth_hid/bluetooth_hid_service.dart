@@ -24,7 +24,8 @@ class BluetoothHidNotifier extends StateNotifier<HidState> {
       (dynamic event) {
         if (event is Map) {
           final statusString = event['status'] as String?;
-          _handleStatusUpdate(statusString);
+          final address = event['address'] as String?;
+          _handleStatusUpdate(statusString, address);
         }
       },
       onError: (dynamic error) {
@@ -36,28 +37,41 @@ class BluetoothHidNotifier extends StateNotifier<HidState> {
     );
   }
 
-  void _handleStatusUpdate(String? status) {
+  void _handleStatusUpdate(String? status, [String? address]) {
     switch (status) {
       case 'CONNECTED':
         state = state.copyWith(
-            status: HidConnectionStatus.connected, lastError: null);
+          status: HidConnectionStatus.connected,
+          connectedDeviceAddress: address ?? state.connectedDeviceAddress,
+          lastError: null,
+        );
         break;
       case 'CONNECTING':
         state = state.copyWith(
-            status: HidConnectionStatus.connecting, lastError: null);
+          status: HidConnectionStatus.connecting,
+          connectedDeviceAddress: address ?? state.connectedDeviceAddress,
+          lastError: null,
+        );
         break;
       case 'DISCONNECTING':
         state = state.copyWith(
-            status: HidConnectionStatus.disconnecting, lastError: null);
+          status: HidConnectionStatus.disconnecting,
+          lastError: null,
+        );
         break;
       case 'DISCONNECTED':
       case 'UNREGISTERED':
         state = state.copyWith(
-            status: HidConnectionStatus.disconnected, lastError: null);
+          status: HidConnectionStatus.disconnected,
+          connectedDeviceAddress: null,
+          lastError: null,
+        );
         break;
       case 'REGISTERED':
         state = state.copyWith(
-            status: HidConnectionStatus.disconnected, lastError: null);
+          status: HidConnectionStatus.disconnected,
+          lastError: null,
+        );
         break;
       default:
         break;

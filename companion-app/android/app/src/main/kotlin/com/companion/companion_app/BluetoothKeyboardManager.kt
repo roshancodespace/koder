@@ -15,7 +15,8 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.Executors
 
-class BluetoothKeyboardManager(private val context: Context) : MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
+class BluetoothKeyboardManager(private val context: Context) : MethodChannel.MethodCallHandler,
+    EventChannel.StreamHandler {
 
     private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
     private var hidDevice: BluetoothHidDevice? = null
@@ -30,7 +31,7 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
     private var spoofProvider: String = "Logitech"
     private var spoofDescription: String = "Logitech MX Keys Advanced Wireless Keyboard"
 
-    // 8-byte Standard USB Boot Keyboard Report Descriptor
+    // 8-byte Standard USB Boot Keyboard Report Descriptor with Output (LEDs) Report
     private val descriptor = byteArrayOf(
         0x05.toByte(), 0x01.toByte(), // Usage Page (Generic Desktop)
         0x09.toByte(), 0x06.toByte(), // Usage (Keyboard)
@@ -46,6 +47,15 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
         0x95.toByte(), 0x01.toByte(), // Report Count (1 - reserved byte)
         0x75.toByte(), 0x08.toByte(), // Report Size (8)
         0x81.toByte(), 0x01.toByte(), // Input (Constant)
+        0x95.toByte(), 0x05.toByte(), // Report Count (5 - LEDs)
+        0x75.toByte(), 0x01.toByte(), // Report Size (1)
+        0x05.toByte(), 0x08.toByte(), // Usage Page (LEDs)
+        0x19.toByte(), 0x01.toByte(), // Usage Minimum (1 - Num Lock)
+        0x29.toByte(), 0x05.toByte(), // Usage Maximum (5 - Kana)
+        0x91.toByte(), 0x02.toByte(), // Output (Data, Variable, Absolute)
+        0x95.toByte(), 0x01.toByte(), // Report Count (1 - LED padding)
+        0x75.toByte(), 0x03.toByte(), // Report Size (3)
+        0x91.toByte(), 0x01.toByte(), // Output (Constant)
         0x95.toByte(), 0x06.toByte(), // Report Count (6 keycodes)
         0x75.toByte(), 0x08.toByte(), // Report Size (8)
         0x15.toByte(), 0x00.toByte(), // Logical Minimum (0)
@@ -88,21 +98,71 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
             when (state) {
                 BluetoothProfile.STATE_CONNECTED -> {
                     connectedDevice = device
-                    postEvent("CONNECTED")
+                    postEvent("CONNECTED", device?.address)
                 }
+
                 BluetoothProfile.STATE_CONNECTING -> {
-                    postEvent("CONNECTING")
+                    postEvent("CONNECTING", device?.address)
                 }
+
                 BluetoothProfile.STATE_DISCONNECTING -> {
-                    postEvent("DISCONNECTING")
+                    postEvent("DISCONNECTING", device?.address)
                 }
+
                 BluetoothProfile.STATE_DISCONNECTED -> {
+                    val prevAddress = connectedDevice?.address ?: device?.address
                     if (connectedDevice == device) {
                         connectedDevice = null
                     }
-                    postEvent("DISCONNECTED")
+                    postEvent("DISCONNECTED", prevAddress)
                 }
             }
+        }
+
+        override fun onGetReport(device: BluetoothDevice?, type: Byte, id: Byte, bufferSize: Int) {
+            if (device == null) return
+            when (type) {
+                BluetoothHidDevice.REPORT_TYPE_INPUT -> {
+                    // Send 8-byte empty input report (no keys pressed)
+                    val emptyReport = byteArrayOf(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
+                    hidDevice?.replyReport(device, type, id, emptyReport)
+                }
+
+                BluetoothHidDevice.REPORT_TYPE_OUTPUT -> {
+                    // Send 1-byte LED status
+                    val ledReport = byteArrayOf(0x00)
+                    hidDevice?.replyReport(device, type, id, ledReport)
+                }
+
+                else -> {
+                    hidDevice?.reportError(device, BluetoothHidDevice.ERROR_RSP_UNSUPPORTED_REQ)
+                }
+            }
+        }
+
+        override fun onSetReport(device: BluetoothDevice?, type: Byte, id: Byte, data: ByteArray?) {
+            if (device == null) return
+            // Host sends output report (e.g. keyboard LEDs) or feature report.
+            // Acknowledge with SUCCESS so the host completes handshake and does not time out!
+            hidDevice?.reportError(device, BluetoothHidDevice.ERROR_RSP_SUCCESS)
+        }
+
+        override fun onSetProtocol(device: BluetoothDevice?, protocol: Byte) {
+            if (device == null) return
+            // Host sets boot mode or report mode. Acknowledge with SUCCESS!
+            hidDevice?.reportError(device, BluetoothHidDevice.ERROR_RSP_SUCCESS)
+        }
+
+        override fun onInterruptData(device: BluetoothDevice?, reportId: Byte, data: ByteArray?) {
+            // Optional data received on interrupt channel
+        }
+
+        override fun onVirtualCableUnplug(device: BluetoothDevice?) {
+            val prevAddress = connectedDevice?.address ?: device?.address
+            if (connectedDevice == device) {
+                connectedDevice = null
+            }
+            postEvent("DISCONNECTED", prevAddress)
         }
     }
 
@@ -133,7 +193,8 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
             errorMessage = "Bluetooth is currently turned OFF. Please turn on Bluetooth."
         } else {
             try {
-                proxySupported = bluetoothAdapter?.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE) ?: false
+                proxySupported =
+                    bluetoothAdapter?.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE) ?: false
                 if (!proxySupported) {
                     errorMessage = "OEM HAL has disabled Bluetooth HID Device profile"
                 }
@@ -155,24 +216,18 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
         val device = hidDevice ?: return false
         try {
             bluetoothAdapter?.name = spoofDeviceName
-        } catch (_: SecurityException) {}
+        } catch (_: SecurityException) {
+        }
 
         val sdp = BluetoothHidDeviceAppSdpSettings(
             spoofDeviceName,
             spoofDescription,
             spoofProvider,
-            0x40.toByte(), // Subclass: Keyboard
+            BluetoothHidDevice.SUBCLASS1_KEYBOARD,
             descriptor
         )
-        val qos = BluetoothHidDeviceAppQosSettings(
-            BluetoothHidDeviceAppQosSettings.SERVICE_BEST_EFFORT,
-            800,
-            9,
-            0,
-            11250,
-            BluetoothHidDeviceAppQosSettings.MAX
-        )
-        return device.registerApp(sdp, qos, null, executor, hidCallback)
+        // Pass null for inQos and outQos to use system-optimized default QoS
+        return device.registerApp(sdp, null, null, executor, hidCallback)
     }
 
     fun unregisterSdp(): Boolean {
@@ -187,7 +242,8 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
 
         try {
             bluetoothAdapter?.name = deviceName
-        } catch (_: SecurityException) {}
+        } catch (_: SecurityException) {
+        }
 
         if (hidDevice != null && isRegistered) {
             unregisterSdp()
@@ -200,7 +256,8 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
         return try {
             try {
                 bluetoothAdapter?.name = spoofDeviceName
-            } catch (_: SecurityException) {}
+            } catch (_: SecurityException) {
+            }
 
             val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
                 putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, durationSeconds)
@@ -296,16 +353,26 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
         val keyReport = byteArrayOf(modifier, 0x00, keyCode, 0x00, 0x00, 0x00, 0x00, 0x00)
         val sent = device.sendReport(target, 0, keyReport)
 
-        // Immediate all-zero release report to eliminate stuck keys
-        val releaseReport = byteArrayOf(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
-        device.sendReport(target, 0, releaseReport)
+        // Give the OS 25ms to register the keydown event before sending keyup
+        executor.execute {
+            try {
+                Thread.sleep(25)
+            } catch (_: InterruptedException) {
+            }
+            val releaseReport = byteArrayOf(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
+            device.sendReport(target, 0, releaseReport)
+        }
 
         return sent
     }
 
-    private fun postEvent(status: String) {
+    private fun postEvent(status: String, address: String? = null) {
         mainHandler.post {
-            eventSink?.success(mapOf("status" to status))
+            val payload = mutableMapOf<String, Any>("status" to status)
+            if (address != null) {
+                payload["address"] = address
+            }
+            eventSink?.success(payload)
         }
     }
 
@@ -314,12 +381,15 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
             "checkCapability" -> {
                 result.success(checkCapability())
             }
+
             "registerApp" -> {
                 result.success(registerSdp())
             }
+
             "unregisterApp" -> {
                 result.success(unregisterSdp())
             }
+
             "connect" -> {
                 val mac = call.argument<String>("macAddress")
                 if (mac.isNullOrEmpty()) {
@@ -333,16 +403,19 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
                     }
                 }
             }
+
             "setDeviceSpoof" -> {
                 val name = call.argument<String>("deviceName") ?: "Logitech MX Keys"
                 val provider = call.argument<String>("provider") ?: "Logitech"
                 val desc = call.argument<String>("description") ?: "Wireless Keyboard"
                 result.success(setDeviceSpoof(name, provider, desc))
             }
+
             "makeDiscoverable" -> {
                 val duration = call.argument<Int>("duration") ?: 300
                 result.success(makeDiscoverable(duration))
             }
+
             "getSpoofProfile" -> {
                 result.success(
                     mapOf(
@@ -352,20 +425,25 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
                     )
                 )
             }
+
             "disconnect" -> {
                 result.success(disconnect())
             }
+
             "getBondedDevices" -> {
                 result.success(getBondedDevices())
             }
+
             "openBluetoothSettings" -> {
                 result.success(openBluetoothSettings())
             }
+
             "sendKeyPress" -> {
                 val modifier = (call.argument<Int>("modifier") ?: 0).toByte()
                 val keyCode = (call.argument<Int>("keyCode") ?: 0).toByte()
                 result.success(sendKeyPress(modifier, keyCode))
             }
+
             else -> result.notImplemented()
         }
     }
@@ -373,7 +451,7 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
         this.eventSink = events
         if (connectedDevice != null) {
-            postEvent("CONNECTED")
+            postEvent("CONNECTED", connectedDevice?.address)
         } else if (isRegistered) {
             postEvent("REGISTERED")
         } else {
