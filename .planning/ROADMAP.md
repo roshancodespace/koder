@@ -60,8 +60,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: Implement `EditorMonitor` and `SafeWorkspaceManager` (path traversal guard, collision detection, recursive directory/file creation).
-- [ ] 03-02: Implement floating QuickPick/InputBox command workflow and bind extension commands and shortcut contributions.
+- [ ] 03-01-PLAN.md — Implement EditorMonitor and SafeWorkspaceManager (path traversal guard, collision detection, recursive directory/file creation)
+- [ ] 03-02-PLAN.md — Implement floating QuickPick/InputBox command workflow and bind extension commands and shortcut contributions
 
 ### Phase 4: Bi-Directional WebSocket Protocol & Networking Engine
 **Goal**: Implement the versioned bidirectional JSON-RPC messaging engine connecting the VS Code extension server and the Android companion client over loopback and authenticated LAN.
