@@ -99,7 +99,8 @@ class DashboardScreen extends ConsumerWidget {
                       Text('Service: ${isServiceRunning ? 'Active' : 'Idle'}'),
                   selected: isServiceRunning,
                   onSelected: (_) {
-                    final manager = ref.read(foregroundServiceStateProvider.notifier);
+                    final manager =
+                        ref.read(foregroundServiceStateProvider.notifier);
                     if (isServiceRunning) {
                       manager.stopSession();
                     } else {
