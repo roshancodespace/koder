@@ -7,7 +7,7 @@ The VS Code Companion System is developed as two completely independent subproje
 ## Phases
 
 - [x] **Phase 1: Project Scaffolding, Tooling & CI Setup** - Bootstrap independent `companion-app/` and `vscode-extension/` roots with formatting, linting, and CI pipelines.
-- [ ] **Phase 2: Android Bluetooth HID Platform Channel & Foreground Lifecycle** - Native Kotlin `BluetoothHidDevice` implementation, scancode mapping, capability probing, and `connectedDevice` foreground service.
+- [x] **Phase 2: Android Bluetooth HID Platform Channel & Foreground Lifecycle** - Native Kotlin `BluetoothHidDevice` implementation, scancode mapping, capability probing, and `connectedDevice` foreground service.
 - [ ] **Phase 3: VS Code Extension Core, Editor Awareness & Safe Workspace Operations** - TypeScript extension, editor event telemetry, QuickPick/InputBox workflows, path traversal defense, and collision-safe file creation.
 - [ ] **Phase 4: Bi-Directional WebSocket Protocol & Networking Engine** - Extension WebSocket server, Android client, versioned JSON-RPC envelope, loopback USB mode, and authenticated LAN pairing.
 - [ ] **Phase 5: Android Companion UI & Project Management Engine** - Material 3 companion interface, live status dashboard, multi-source project importer, hierarchical tree with exclusions, and SQLite persistence.
@@ -45,7 +45,7 @@ Plans:
 
 Plans:
 - [x] 02-01-PLAN.md — Implement native Kotlin BluetoothKeyboardManager platform channel with SDP registration, scancode tables, and capability detection
-- [ ] 02-02-PLAN.md — Implement CompanionForegroundService (connectedDevice), notification channel, and Flutter Dart platform channel client
+- [x] 02-02-PLAN.md — Implement CompanionForegroundService (connectedDevice), notification channel, and Flutter Dart platform channel client
 
 ### Phase 3: VS Code Extension Core, Editor Awareness & Safe Workspace Operations
 **Goal**: Implement the VS Code extension's event-driven editor telemetry, path traversal defense, and custom QuickPick/InputBox file creation workflow using `vscode.workspace.fs`.
@@ -119,7 +119,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Project Scaffolding, Tooling & CI Setup | 2/2 | Complete | 2026-11-12 |
-| 2. Android Bluetooth HID Platform Channel & Foreground Lifecycle | 0/2 | Not started | - |
+| 2. Android Bluetooth HID Platform Channel & Foreground Lifecycle | 2/2 | Complete | 2026-11-12 |
 | 3. VS Code Extension Core, Editor Awareness & Safe Workspace Operations | 0/2 | Not started | - |
 | 4. Bi-Directional WebSocket Protocol & Networking Engine | 0/2 | Not started | - |
 | 5. Android Companion UI & Project Management Engine | 0/3 | Not started | - |

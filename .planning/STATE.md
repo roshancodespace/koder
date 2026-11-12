@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
-current_phase: 2
-current_phase_name: Android Bluetooth HID Platform Channel & Foreground Lifecycle
+current_phase: 3
+current_phase_name: VS Code Extension Core, Editor Awareness & Safe Workspace Operations
 status: ready_to_plan
-stopped_at: Phase 1 execution complete. Ready to plan Phase 2.
-last_updated: "2026-11-12T11:12:00.000Z"
+stopped_at: Phase 2 execution complete. Ready to plan Phase 3.
+last_updated: "2026-11-12T11:40:00.000Z"
 last_activity: 2026-11-12
-last_activity_desc: Completed Phase 1 execution (both companion-app and vscode-extension bootstrapped with CI).
-state_head: 8e9d9c95eb7dfa4e1871a2e850b6912448373b9e
+last_activity_desc: Completed Phase 2 execution (native Kotlin Bluetooth HID platform channel, capability probing, release reports, and connectedDevice foreground service).
+state_head: c7cefd584f22ae3f8c85ae69818ca8066f287413
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 13
-  completed_plans: 2
-  percent: 15
+  completed_plans: 4
+  percent: 31
 ---
 
 # Project State
@@ -23,30 +23,30 @@ progress:
 See: .planning/PROJECT.md (updated 2026-11-12)
 
 **Core value:** Enable low-latency, context-aware command execution and workspace manipulation directly from an Android companion device via Bluetooth HID shortcuts and structured WebSocket telemetry, strictly bounded by safe workspace APIs and without autonomous code generation.
-**Current focus:** Phase 2 — Android Bluetooth HID Platform Channel & Foreground Lifecycle
+**Current focus:** Phase 3 — VS Code Extension Core, Editor Awareness & Safe Workspace Operations
 
 ## Current Position
 
-Phase: 2 (Android Bluetooth HID Platform Channel & Foreground Lifecycle) — READY TO PLAN
+Phase: 3 (VS Code Extension Core, Editor Awareness & Safe Workspace Operations) — READY TO PLAN
 Plan: 0 of 2 in current phase
-Status: Phase 1 complete, ready to plan Phase 2
-Last activity: 2026-11-12 — Completed Phase 1 scaffolding, tooling, and independent CI workflows for companion-app and vscode-extension.
+Status: Phase 2 complete, ready to plan Phase 3
+Last activity: 2026-11-12 — Completed Phase 2 native Android Bluetooth HID platform channel and connectedDevice foreground service.
 
-Progress: [█░░░░░░░░░] 15%
+Progress: [███░░░░░░░] 31%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 9 min
-- Total execution time: 0.3 hours
+- Total plans completed: 4
+- Average duration: 10 min
+- Total execution time: 0.7 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1. Scaffolding & CI | 2/2 | 17 min | 8.5 min |
-| 2. Android Bluetooth HID | 0/2 | - | - |
+| 2. Android Bluetooth HID | 2/2 | 22 min | 11 min |
 | 3. VS Code Extension & Safety | 0/2 | - | - |
 | 4. WebSocket Protocol Engine | 0/2 | - | - |
 | 5. Android UI & Project Mgr | 0/3 | - | - |

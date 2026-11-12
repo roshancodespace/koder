@@ -7,11 +7,11 @@
 
 ### Bluetooth HID & Native Android Foundation
 
-- [ ] **HID-01**: Android application initializes `BluetoothAdapter` and registers as a Bluetooth HID Device using `BluetoothHidDevice` (API 28+).
-- [ ] **HID-02**: Native Kotlin platform channel manages Service Discovery Protocol (SDP) keyboard record settings, QoS, and HID callbacks.
-- [ ] **HID-03**: App transmits standard 8-byte boot keyboard input reports (modifier byte + keycodes) followed immediately by all-zero release reports.
-- [ ] **HID-04**: App checks `BluetoothProfile.HID_DEVICE` support defensively and reports clear diagnostic status if the OEM hardware/ROM disables HID Device mode.
-- [ ] **HID-05**: Android Foreground Service (`foregroundServiceType="connectedDevice"`) runs with a persistent notification during active sessions to prevent OS background termination.
+- [x] **HID-01**: Android application initializes `BluetoothAdapter` and registers as a Bluetooth HID Device using `BluetoothHidDevice` (API 28+).
+- [x] **HID-02**: Native Kotlin platform channel manages Service Discovery Protocol (SDP) keyboard record settings, QoS, and HID callbacks.
+- [x] **HID-03**: App transmits standard 8-byte boot keyboard input reports (modifier byte + keycodes) followed immediately by all-zero release reports.
+- [x] **HID-04**: App checks `BluetoothProfile.HID_DEVICE` support defensively and reports clear diagnostic status if the OEM hardware/ROM disables HID Device mode.
+- [x] **HID-05**: Android Foreground Service (`foregroundServiceType="connectedDevice"`) runs with a persistent notification during active sessions to prevent OS background termination.
 
 ### VS Code Extension & Safe Workspace Operations
 
@@ -73,11 +73,11 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HID-01 | Phase 2 | Pending |
-| HID-02 | Phase 2 | Pending |
-| HID-03 | Phase 2 | Pending |
-| HID-04 | Phase 2 | Pending |
-| HID-05 | Phase 2 | Pending |
+| HID-01 | Phase 2 | Complete |
+| HID-02 | Phase 2 | Complete |
+| HID-03 | Phase 2 | Complete |
+| HID-04 | Phase 2 | Complete |
+| HID-05 | Phase 2 | Complete |
 | EXT-01 | Phase 1 | Complete |
 | EXT-02 | Phase 3 | Pending |
 | EXT-03 | Phase 3 | Pending |
