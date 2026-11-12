@@ -16,7 +16,11 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onCommand:vscode-companion.status",
+    "onCommand:vscode-companion.createFile",
+    "onCommand:vscode-companion.showPairingToken",
+    "onCommand:vscode-companion.getEditorState"
   ],
   "main": "./out/src/extension.js",
   "contributes": {
@@ -44,8 +48,9 @@
     ]
   },
   "scripts": {
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && esbuild ./src/extension.ts --bundle --outfile=out/src/extension.js --external:vscode --format=cjs --platform=node",
     "watch": "tsc -watch -p ./",
+    "bundle": "esbuild ./src/extension.ts --bundle --outfile=out/src/extension.js --external:vscode --format=cjs --platform=node",
     "prepublish": "pnpm run compile",
     "lint": "eslint src",
     "test": "node ./out/test/runTest.js"
@@ -61,6 +66,7 @@
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
     "@vscode/vsce": "^3.2.1",
+    "esbuild": "^0.28.2",
     "eslint": "^9.20.0",
     "mocha": "^10.8.2",
     "typescript": "~5.8.0",
