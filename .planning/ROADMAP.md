@@ -92,7 +92,7 @@ Plans:
 
 Plans:
 - [x] 05-01-PLAN.md — Implement SQLite database schema, migrations, and repository layer for projects, files, exclusions, and settings
-- [ ] 05-02-PLAN.md — Implement multi-source project importer (local folder, local ZIP, ZIP URL, GitHub repo) and hierarchical tree parser
+- [x] 05-02-PLAN.md — Implement multi-source project importer (local folder, local ZIP, ZIP URL, GitHub repo) and hierarchical tree parser
 - [ ] 05-03-PLAN.md — Implement companion UI screens: Connection Dashboard, Editor Overview, Shortcut Trigger Pad, and Project Explorer
 
 ### Phase 6: End-to-End Integration, Release Automation & Verification
