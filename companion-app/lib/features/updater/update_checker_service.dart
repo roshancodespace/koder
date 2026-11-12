@@ -29,7 +29,7 @@ class UpdateInfo {
 }
 
 class UpdateCheckerNotifier extends StateNotifier<AsyncValue<UpdateInfo>> {
-  static const String currentAppVersion = '0.2.1';
+  static const String currentAppVersion = '0.2.2';
   static const String repoOwner = 'roshancodespace';
   static const String repoName = 'koder';
 

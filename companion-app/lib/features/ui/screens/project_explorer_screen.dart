@@ -717,7 +717,9 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         icon: Icon(
-          isWsConnected ? Icons.auto_awesome_rounded : Icons.warning_amber_rounded,
+          isWsConnected
+              ? Icons.auto_awesome_rounded
+              : Icons.warning_amber_rounded,
           size: 44,
           color: isWsConnected ? Colors.blue : Colors.amber,
         ),
@@ -759,7 +761,8 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
               ),
               child: Text(
                 'Will type ${filesToAutomate.length} files (${_humanizationConfig.minWpm}-${_humanizationConfig.maxWpm} WPM, ${_humanizationConfig.errorRatePercent.toStringAsFixed(1)}% typos)${isWsConnected ? ' with auto-file opening' : ''}.',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
             ),
           ],

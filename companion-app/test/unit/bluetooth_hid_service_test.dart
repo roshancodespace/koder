@@ -149,7 +149,8 @@ void main() {
     });
 
     test('clearError resets lastError in state to null', () {
-      notifier.state = notifier.state.copyWith(lastError: 'Simulated connection failure');
+      notifier.state =
+          notifier.state.copyWith(lastError: 'Simulated connection failure');
       expect(notifier.state.lastError, equals('Simulated connection failure'));
 
       notifier.clearError();

@@ -544,18 +544,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   children: [
                                     Text(
                                       'Bluetooth Pairing Notice',
-                                      style: theme.textTheme.titleSmall
-                                          ?.copyWith(
+                                      style:
+                                          theme.textTheme.titleSmall?.copyWith(
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 0.1,
                                       ),
                                     ),
                                     Text(
                                       'Host connection required',
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                        color: theme
-                                            .colorScheme.onSurfaceVariant,
+                                      style:
+                                          theme.textTheme.labelSmall?.copyWith(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
                                       ),
                                     ),
                                   ],
@@ -566,8 +566,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 tooltip: 'Dismiss',
                                 visualDensity: VisualDensity.compact,
                                 onPressed: () => ref
-                                    .read(
-                                        bluetoothHidServiceProvider.notifier)
+                                    .read(bluetoothHidServiceProvider.notifier)
                                     .clearError(),
                               ),
                             ],
@@ -589,8 +588,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             runSpacing: 8,
                             children: [
                               FilledButton.tonalIcon(
-                                icon: const Icon(Icons.sensors_rounded,
-                                    size: 18),
+                                icon:
+                                    const Icon(Icons.sensors_rounded, size: 18),
                                 label: Text(
                                   'Expose as ${hidState.activeSpoof.deviceName}',
                                 ),
@@ -606,8 +605,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                     size: 18),
                                 label: const Text('Open Settings'),
                                 onPressed: () => ref
-                                    .read(
-                                        bluetoothHidServiceProvider.notifier)
+                                    .read(bluetoothHidServiceProvider.notifier)
                                     .openBluetoothSettings(),
                               ),
                             ],
