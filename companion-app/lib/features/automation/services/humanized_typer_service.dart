@@ -2,6 +2,10 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../bluetooth_hid/bluetooth_hid_service.dart';
+import '../../network/providers/websocket_provider.dart';
+import '../../project/data/project_repository.dart';
+import '../../project/models/project_models.dart';
+import '../../project/providers/project_provider.dart';
 import '../models/humanization_config.dart';
 import 'keyboard_scancode_mapper.dart';
 
@@ -16,46 +20,58 @@ enum AutomationStatus {
 
 class AutomationProgress {
   final AutomationStatus status;
+  final String projectId;
   final String activeFileName;
   final int currentFileIndex;
+  final int characterOffset;
   final int totalFiles;
   final int charactersTyped;
   final int totalCharacters;
   final int typosCorrected;
+  final int driftFixesApplied;
   final int currentWpm;
   final String? errorMessage;
 
   const AutomationProgress({
     this.status = AutomationStatus.idle,
+    this.projectId = '',
     this.activeFileName = '',
     this.currentFileIndex = 0,
+    this.characterOffset = 0,
     this.totalFiles = 0,
     this.charactersTyped = 0,
     this.totalCharacters = 0,
     this.typosCorrected = 0,
+    this.driftFixesApplied = 0,
     this.currentWpm = 0,
     this.errorMessage,
   });
 
   AutomationProgress copyWith({
     AutomationStatus? status,
+    String? projectId,
     String? activeFileName,
     int? currentFileIndex,
+    int? characterOffset,
     int? totalFiles,
     int? charactersTyped,
     int? totalCharacters,
     int? typosCorrected,
+    int? driftFixesApplied,
     int? currentWpm,
     String? errorMessage,
   }) {
     return AutomationProgress(
       status: status ?? this.status,
+      projectId: projectId ?? this.projectId,
       activeFileName: activeFileName ?? this.activeFileName,
       currentFileIndex: currentFileIndex ?? this.currentFileIndex,
+      characterOffset: characterOffset ?? this.characterOffset,
       totalFiles: totalFiles ?? this.totalFiles,
       charactersTyped: charactersTyped ?? this.charactersTyped,
       totalCharacters: totalCharacters ?? this.totalCharacters,
       typosCorrected: typosCorrected ?? this.typosCorrected,
+      driftFixesApplied: driftFixesApplied ?? this.driftFixesApplied,
       currentWpm: currentWpm ?? this.currentWpm,
       errorMessage: errorMessage ?? this.errorMessage,
     );
@@ -74,17 +90,34 @@ class FileToType {
 
 class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
   final BluetoothHidNotifier _hidNotifier;
+  final ProjectRepository? _repository;
+  final Map<String, dynamic>? Function()? _getEditorState;
   final Random _random = Random();
 
   bool _isPaused = false;
   bool _isCancelled = false;
   bool _skipRequested = false;
 
-  HumanizedTyperNotifier(this._hidNotifier) : super(const AutomationProgress());
+  HumanizedTyperNotifier(
+    this._hidNotifier, {
+    ProjectRepository? repository,
+    Map<String, dynamic>? Function()? getEditorState,
+  })  : _repository = repository,
+        _getEditorState = getEditorState,
+        super(const AutomationProgress());
 
   void pause() {
     _isPaused = true;
     state = state.copyWith(status: AutomationStatus.paused);
+    _saveCheckpoint(
+      projectId: state.projectId,
+      fileIndex: state.currentFileIndex,
+      charOffset: state.characterOffset,
+      fileName: state.activeFileName,
+      typed: state.charactersTyped,
+      total: state.totalCharacters,
+      typos: state.typosCorrected,
+    );
   }
 
   void resume() {
@@ -96,6 +129,15 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
     _isCancelled = true;
     _isPaused = false;
     state = state.copyWith(status: AutomationStatus.cancelled);
+    _saveCheckpoint(
+      projectId: state.projectId,
+      fileIndex: state.currentFileIndex,
+      charOffset: state.characterOffset,
+      fileName: state.activeFileName,
+      typed: state.charactersTyped,
+      total: state.totalCharacters,
+      typos: state.typosCorrected,
+    );
   }
 
   void skipCurrentFile() {
@@ -103,8 +145,11 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
   }
 
   Future<void> startAutomation(
+    String projectId,
     List<FileToType> files, {
     HumanizationConfig config = const HumanizationConfig(),
+    int resumeFileIndex = 0,
+    int resumeCharOffset = 0,
   }) async {
     if (files.isEmpty) return;
 
@@ -115,41 +160,69 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
     final totalChars =
         files.fold<int>(0, (sum, file) => sum + file.content.length);
 
+    int startTyped = 0;
+    for (int idx = 0; idx < resumeFileIndex && idx < files.length; idx++) {
+      startTyped += files[idx].content.length;
+    }
+    startTyped += resumeCharOffset;
+
     state = AutomationProgress(
       status: AutomationStatus.running,
-      activeFileName: files.first.relativePath,
-      currentFileIndex: 0,
+      projectId: projectId,
+      activeFileName:
+          files[min(resumeFileIndex, files.length - 1)].relativePath,
+      currentFileIndex: resumeFileIndex,
+      characterOffset: resumeCharOffset,
       totalFiles: files.length,
-      charactersTyped: 0,
+      charactersTyped: startTyped,
       totalCharacters: totalChars,
       typosCorrected: 0,
+      driftFixesApplied: 0,
       currentWpm: (config.minWpm + config.maxWpm) ~/ 2,
     );
 
-    int overallTyped = 0;
+    int overallTyped = startTyped;
     int overallTypos = 0;
+    int overallDriftFixes = 0;
 
-    for (int i = 0; i < files.length; i++) {
+    for (int i = resumeFileIndex; i < files.length; i++) {
       if (_isCancelled) break;
       _skipRequested = false;
 
       final file = files[i];
+      final text = file.content;
+      final textLength = text.length;
+      final int startOffset = (i == resumeFileIndex) ? resumeCharOffset : 0;
+
       state = state.copyWith(
         currentFileIndex: i,
+        characterOffset: startOffset,
         activeFileName: file.relativePath,
+      );
+
+      // Save starting checkpoint for this file
+      await _saveCheckpoint(
+        projectId: projectId,
+        fileIndex: i,
+        charOffset: startOffset,
+        fileName: file.relativePath,
+        typed: overallTyped,
+        total: totalChars,
+        typos: overallTypos,
       );
 
       // 1. Give human 1 second to view the next file starting
       await Future<void>.delayed(const Duration(milliseconds: 1000));
       if (_isCancelled) break;
 
-      // 2. Type file content with humanization
-      final text = file.content;
-      final textLength = text.length;
+      // 2. Type file content with humanization and drift checking
       int burstCounter = 0;
       final int burstThreshold = _random.nextInt(25) + 20;
 
-      for (int charIdx = 0; charIdx < textLength; charIdx++) {
+      // Track active bracket stack for auto-bracket awareness
+      final List<String> openBrackets = [];
+
+      for (int charIdx = startOffset; charIdx < textLength; charIdx++) {
         if (_isCancelled) break;
         if (_skipRequested) break;
 
@@ -160,10 +233,23 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
         if (_isCancelled) break;
 
         final char = text[charIdx];
-        final stroke = KeyboardScancodeMapper.charToKeyStroke(char);
 
+        // --- AUTO-INDENTATION & BRACKET AWARENESS ---
+        if (config.autoBracketAware) {
+          if (char == '{' || char == '(' || char == '[') {
+            openBrackets.add(char);
+          } else if (openBrackets.isNotEmpty) {
+            final last = openBrackets.last;
+            if ((char == '}' && last == '{') ||
+                (char == ')' && last == '(') ||
+                (char == ']' && last == '[')) {
+              openBrackets.removeLast();
+            }
+          }
+        }
+
+        final stroke = KeyboardScancodeMapper.charToKeyStroke(char);
         if (stroke == null) {
-          // Unsupported unicode character - fallback or skip
           overallTyped++;
           continue;
         }
@@ -177,7 +263,6 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
             final wrongStroke =
                 KeyboardScancodeMapper.charToKeyStroke(adjacentKey);
             if (wrongStroke != null) {
-              // 1. Send the mistyped character
               await _hidNotifier.sendShortcut(
                 wrongStroke.modifier,
                 wrongStroke.keyCode,
@@ -185,19 +270,16 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
               overallTypos++;
               state = state.copyWith(typosCorrected: overallTypos);
 
-              // 2. Human realization delay (120 - 300 ms)
               final realizationMs = _random.nextInt(180) + 120;
               await Future<void>.delayed(
                 Duration(milliseconds: realizationMs),
               );
 
-              // 3. Send Backspace to erase mistake
               await _hidNotifier.sendShortcut(
                 HidKeyStroke.backspace.modifier,
                 HidKeyStroke.backspace.keyCode,
               );
 
-              // 4. Recovery delay before typing correct char (80 - 160 ms)
               final recoveryMs = _random.nextInt(80) + 80;
               await Future<void>.delayed(
                 Duration(milliseconds: recoveryMs),
@@ -211,13 +293,35 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
         overallTyped++;
         burstCounter++;
 
+        // --- SELF-HEALING DRIFT FIXER ---
+        // Periodic check every 25 characters, on newlines, or after punctuation
+        if (config.selfHealingFixer &&
+            (char == '\n' || char == ';' || charIdx % 25 == 0)) {
+          final fixes = await _healDriftIfDetected(text, charIdx + 1, config);
+          if (fixes > 0) {
+            overallDriftFixes += fixes;
+            state = state.copyWith(driftFixesApplied: overallDriftFixes);
+          }
+        }
+
+        // --- AUTO-INDENTATION HANDLING AFTER NEWLINE ---
+        if (char == '\n' && config.autoIndentationAware) {
+          final editorState = _getEditorState?.call();
+          final tabSize = (editorState?['tabSize'] as int?) ?? 2;
+          final skipped = _detectAutoIndentSkip(text, charIdx + 1, tabSize);
+          if (skipped > 0) {
+            // Fast-forward past the auto-indented spaces
+            charIdx += skipped;
+            overallTyped += skipped;
+          }
+        }
+
         // --- CALCULATE NATURAL DELAY ---
         final randomWpm = _random.nextInt(
               max(1, config.maxWpm - config.minWpm + 1),
             ) +
             config.minWpm;
         final baseCharDelayMs = (60000 / (randomWpm * 5)).round();
-        // Add random jitter of +/- 25%
         final jitter = (_random.nextDouble() * 0.5 - 0.25) * baseCharDelayMs;
         var sleepMs = max(25, (baseCharDelayMs + jitter).round());
 
@@ -243,7 +347,21 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
         if (charIdx % 5 == 0) {
           state = state.copyWith(
             charactersTyped: overallTyped,
+            characterOffset: charIdx,
             currentWpm: randomWpm,
+          );
+        }
+
+        // Checkpoint persistence every 50 characters
+        if (charIdx > 0 && charIdx % 50 == 0) {
+          _saveCheckpoint(
+            projectId: projectId,
+            fileIndex: i,
+            charOffset: charIdx,
+            fileName: file.relativePath,
+            typed: overallTyped,
+            total: totalChars,
+            typos: overallTypos,
           );
         }
 
@@ -263,13 +381,166 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
         status: AutomationStatus.completed,
         charactersTyped: totalChars,
       );
+      if (_repository != null && projectId.isNotEmpty) {
+        await _repository.clearAutomationCheckpoint(projectId);
+      }
     }
+  }
+
+  Future<int> _healDriftIfDetected(
+    String expectedFullContent,
+    int charIdx,
+    HumanizationConfig config,
+  ) async {
+    if (_getEditorState == null) return 0;
+    final editorState = _getEditorState();
+    if (editorState == null) return 0;
+    final live = editorState['activeContent'] as String?;
+    if (live == null || live.isEmpty) return 0;
+
+    final expected = expectedFullContent.substring(0, charIdx);
+    if (live == expected) return 0;
+
+    int fixesCount = 0;
+
+    // Case 1: Live has extra characters at the end (user typed extra text or auto-insert)
+    if (live.startsWith(expected) && live.length > expected.length) {
+      int extraCount = live.length - expected.length;
+      fixesCount += extraCount;
+
+      while (extraCount > 0 && !_isCancelled) {
+        if (config.enableCtrlSpeedup && extraCount >= 4) {
+          await _hidNotifier.sendShortcut(
+            HidKeyStroke.ctrlBackspace.modifier,
+            HidKeyStroke.ctrlBackspace.keyCode,
+          );
+          extraCount = max(0, extraCount - 4);
+        } else {
+          await _hidNotifier.sendShortcut(
+            HidKeyStroke.backspace.modifier,
+            HidKeyStroke.backspace.keyCode,
+          );
+          extraCount--;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+      }
+      return fixesCount;
+    }
+
+    // Case 2: Live is missing characters at the end (user accidentally backspaced / erased)
+    if (expected.startsWith(live) && expected.length > live.length) {
+      final missingText = expected.substring(live.length);
+      fixesCount += missingText.length;
+
+      for (int i = 0; i < missingText.length; i++) {
+        if (_isCancelled) break;
+        final ch = missingText[i];
+        final stroke = KeyboardScancodeMapper.charToKeyStroke(ch);
+        if (stroke != null) {
+          await _hidNotifier.sendShortcut(stroke.modifier, stroke.keyCode);
+          await Future<void>.delayed(const Duration(milliseconds: 25));
+        }
+      }
+      return fixesCount;
+    }
+
+    // Case 3: Divergence in recent line
+    int lcp = 0;
+    final minLen = min(live.length, expected.length);
+    while (lcp < minLen && live[lcp] == expected[lcp]) {
+      lcp++;
+    }
+
+    final unwantedInLive = live.length - lcp;
+    final missingInExpected = expected.length - lcp;
+
+    if (unwantedInLive > 0 && unwantedInLive <= 120) {
+      fixesCount += unwantedInLive + missingInExpected;
+      int toDelete = unwantedInLive;
+      while (toDelete > 0 && !_isCancelled) {
+        if (config.enableCtrlSpeedup && toDelete >= 4) {
+          await _hidNotifier.sendShortcut(
+            HidKeyStroke.ctrlBackspace.modifier,
+            HidKeyStroke.ctrlBackspace.keyCode,
+          );
+          toDelete = max(0, toDelete - 4);
+        } else {
+          await _hidNotifier.sendShortcut(
+            HidKeyStroke.backspace.modifier,
+            HidKeyStroke.backspace.keyCode,
+          );
+          toDelete--;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+      }
+
+      for (int i = lcp; i < expected.length; i++) {
+        if (_isCancelled) break;
+        final ch = expected[i];
+        final stroke = KeyboardScancodeMapper.charToKeyStroke(ch);
+        if (stroke != null) {
+          await _hidNotifier.sendShortcut(stroke.modifier, stroke.keyCode);
+          await Future<void>.delayed(const Duration(milliseconds: 25));
+        }
+      }
+    }
+
+    return fixesCount;
+  }
+
+  int _detectAutoIndentSkip(
+    String text,
+    int nextCharIdx,
+    int tabSize,
+  ) {
+    if (nextCharIdx >= text.length) return 0;
+    int spaceCount = 0;
+    while (nextCharIdx + spaceCount < text.length &&
+        text[nextCharIdx + spaceCount] == ' ') {
+      spaceCount++;
+    }
+    if (spaceCount >= tabSize) {
+      return tabSize;
+    }
+    return spaceCount;
+  }
+
+  Future<void> _saveCheckpoint({
+    required String projectId,
+    required int fileIndex,
+    required int charOffset,
+    required String fileName,
+    required int typed,
+    required int total,
+    required int typos,
+  }) async {
+    final repo = _repository;
+    if (repo == null || projectId.isEmpty) return;
+    try {
+      await repo.saveAutomationCheckpoint(
+        AutomationCheckpointEntity(
+          projectId: projectId,
+          currentFileIndex: fileIndex,
+          characterOffset: charOffset,
+          activeFileName: fileName,
+          charactersTyped: typed,
+          totalCharacters: total,
+          typosCorrected: typos,
+          updatedAt: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+    } catch (_) {}
   }
 }
 
 final humanizedTyperProvider =
     StateNotifierProvider<HumanizedTyperNotifier, AutomationProgress>((ref) {
   final hidNotifier = ref.watch(bluetoothHidServiceProvider.notifier);
-  return HumanizedTyperNotifier(hidNotifier);
+  final repository = ref.watch(projectRepositoryProvider);
+  return HumanizedTyperNotifier(
+    hidNotifier,
+    repository: repository,
+    getEditorState: () =>
+        ref.read(companionNetworkStateProvider).activeEditorState,
+  );
 });
-

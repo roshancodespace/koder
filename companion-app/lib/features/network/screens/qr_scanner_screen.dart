@@ -33,7 +33,8 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
     final rawValue = barcodes.first.rawValue;
     if (rawValue == null || rawValue.trim().isEmpty) return;
 
-    final parsedConfig = CompanionConnectionConfig.parseUriOrJson(rawValue.trim());
+    final parsedConfig =
+        CompanionConnectionConfig.parseUriOrJson(rawValue.trim());
     if (parsedConfig != null) {
       _hasDetected = true;
       HapticFeedback.mediumImpact();
@@ -276,20 +277,28 @@ class QrScannerOverlayShape extends ShapeBorder {
     final bottom = cutOutRect.bottom;
 
     // Top-left corner
-    canvas.drawLine(Offset(left, top + borderLength), Offset(left, top), borderPaint);
-    canvas.drawLine(Offset(left, top), Offset(left + borderLength, top), borderPaint);
+    canvas.drawLine(
+        Offset(left, top + borderLength), Offset(left, top), borderPaint);
+    canvas.drawLine(
+        Offset(left, top), Offset(left + borderLength, top), borderPaint);
 
     // Top-right corner
-    canvas.drawLine(Offset(right - borderLength, top), Offset(right, top), borderPaint);
-    canvas.drawLine(Offset(right, top), Offset(right, top + borderLength), borderPaint);
+    canvas.drawLine(
+        Offset(right - borderLength, top), Offset(right, top), borderPaint);
+    canvas.drawLine(
+        Offset(right, top), Offset(right, top + borderLength), borderPaint);
 
     // Bottom-left corner
-    canvas.drawLine(Offset(left, bottom - borderLength), Offset(left, bottom), borderPaint);
-    canvas.drawLine(Offset(left, bottom), Offset(left + borderLength, bottom), borderPaint);
+    canvas.drawLine(
+        Offset(left, bottom - borderLength), Offset(left, bottom), borderPaint);
+    canvas.drawLine(
+        Offset(left, bottom), Offset(left + borderLength, bottom), borderPaint);
 
     // Bottom-right corner
-    canvas.drawLine(Offset(right - borderLength, bottom), Offset(right, bottom), borderPaint);
-    canvas.drawLine(Offset(right, bottom), Offset(right, bottom - borderLength), borderPaint);
+    canvas.drawLine(Offset(right - borderLength, bottom), Offset(right, bottom),
+        borderPaint);
+    canvas.drawLine(Offset(right, bottom), Offset(right, bottom - borderLength),
+        borderPaint);
   }
 
   @override

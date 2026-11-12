@@ -27,6 +27,38 @@ export function activate(context: vscode.ExtensionContext): void {
     return editorMonitor.getCurrentState() as unknown as Record<string, unknown>;
   });
 
+  serverManager.registerRequestHandler('editor.getActiveContent', async () => {
+    const state = editorMonitor.getCurrentState();
+    return {
+      activeFileUri: state.activeFileUri,
+      relativePath: state.relativePath,
+      content: state.activeContent ?? '',
+      lineCount: state.lineCount ?? 0,
+      cursorPosition: (state.cursorPosition ?? null) as unknown as Record<string, unknown>,
+      tabSize: state.tabSize ?? 2,
+      insertSpaces: state.insertSpaces ?? true,
+      languageId: state.languageId,
+    };
+  });
+
+  serverManager.registerRequestHandler('editor.getFileContent', async (payload) => {
+    const relPath = payload.path as string | undefined;
+    if (!relPath) {
+      throw new Error('Missing "path" in payload');
+    }
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || folders.length === 0) {
+      throw new Error('No workspace folder open in VS Code');
+    }
+    const targetUri = validateWorkspacePath(folders[0], relPath);
+    const fileBytes = await vscode.workspace.fs.readFile(targetUri);
+    const content = Buffer.from(fileBytes).toString('utf8');
+    return {
+      path: relPath,
+      content,
+    };
+  });
+
   serverManager.registerRequestHandler('system.info', async () => {
     return {
       vscodeVersion: vscode.version,

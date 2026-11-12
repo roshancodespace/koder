@@ -212,5 +212,38 @@ void main() {
       expect(logs.length, 2);
       expect(logs.first.id, 'l2'); // Most recent first
     });
+
+    test(
+        'saveAutomationCheckpoint, getAutomationCheckpoint, and clearAutomationCheckpoint',
+        () async {
+      const checkpoint = AutomationCheckpointEntity(
+        projectId: 'proj-persist',
+        currentFileIndex: 2,
+        characterOffset: 145,
+        activeFileName: 'lib/main.dart',
+        charactersTyped: 350,
+        totalCharacters: 1200,
+        typosCorrected: 4,
+        updatedAt: 123456789,
+      );
+
+      await repository.saveAutomationCheckpoint(checkpoint);
+
+      final retrieved =
+          await repository.getAutomationCheckpoint('proj-persist');
+      expect(retrieved, isNotNull);
+      expect(retrieved!.projectId, 'proj-persist');
+      expect(retrieved.currentFileIndex, 2);
+      expect(retrieved.characterOffset, 145);
+      expect(retrieved.activeFileName, 'lib/main.dart');
+      expect(retrieved.charactersTyped, 350);
+      expect(retrieved.totalCharacters, 1200);
+      expect(retrieved.typosCorrected, 4);
+
+      await repository.clearAutomationCheckpoint('proj-persist');
+      final afterClear =
+          await repository.getAutomationCheckpoint('proj-persist');
+      expect(afterClear, isNull);
+    });
   });
 }

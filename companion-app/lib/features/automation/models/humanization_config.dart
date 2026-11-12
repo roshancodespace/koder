@@ -17,6 +17,19 @@ class HumanizationConfig {
   /// Whether to introduce natural thinking bursts / pauses every 20-50 characters
   final bool enableThinkingPauses;
 
+  /// Whether the typer is aware of VS Code auto-indentation and avoids duplicate leading spaces
+  final bool autoIndentationAware;
+
+  /// Whether the typer is aware of VS Code auto-closing brackets and avoids duplicate brackets
+  final bool autoBracketAware;
+
+  /// Whether the self-healing drift fixer is active to detect user alterations,
+  /// navigate via arrow keys, and delete unwanted text with Backspace
+  final bool selfHealingFixer;
+
+  /// Whether to speed up cursor navigation and deletion using Ctrl+Arrow and Ctrl+Backspace
+  final bool enableCtrlSpeedup;
+
   const HumanizationConfig({
     this.minWpm = 30,
     this.maxWpm = 55,
@@ -24,6 +37,10 @@ class HumanizationConfig {
     this.newlinePauseMs = 350,
     this.punctuationPauseMs = 200,
     this.enableThinkingPauses = true,
+    this.autoIndentationAware = true,
+    this.autoBracketAware = true,
+    this.selfHealingFixer = true,
+    this.enableCtrlSpeedup = true,
   });
 
   HumanizationConfig copyWith({
@@ -33,6 +50,10 @@ class HumanizationConfig {
     int? newlinePauseMs,
     int? punctuationPauseMs,
     bool? enableThinkingPauses,
+    bool? autoIndentationAware,
+    bool? autoBracketAware,
+    bool? selfHealingFixer,
+    bool? enableCtrlSpeedup,
   }) {
     return HumanizationConfig(
       minWpm: minWpm ?? this.minWpm,
@@ -41,7 +62,10 @@ class HumanizationConfig {
       newlinePauseMs: newlinePauseMs ?? this.newlinePauseMs,
       punctuationPauseMs: punctuationPauseMs ?? this.punctuationPauseMs,
       enableThinkingPauses: enableThinkingPauses ?? this.enableThinkingPauses,
+      autoIndentationAware: autoIndentationAware ?? this.autoIndentationAware,
+      autoBracketAware: autoBracketAware ?? this.autoBracketAware,
+      selfHealingFixer: selfHealingFixer ?? this.selfHealingFixer,
+      enableCtrlSpeedup: enableCtrlSpeedup ?? this.enableCtrlSpeedup,
     );
   }
 }
-

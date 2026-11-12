@@ -25,12 +25,29 @@ class DatabaseHelper {
       version: _databaseVersion,
       onCreate: _onCreate,
       onConfigure: _onConfigure,
+      onOpen: _onOpen,
     );
   }
 
   Future<void> _onConfigure(Database db) async {
     // Enable foreign key constraints
     await db.execute('PRAGMA foreign_keys = ON');
+  }
+
+  Future<void> _onOpen(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS automation_checkpoints (
+        project_id TEXT PRIMARY KEY,
+        current_file_index INTEGER NOT NULL DEFAULT 0,
+        character_offset INTEGER NOT NULL DEFAULT 0,
+        active_file_name TEXT NOT NULL DEFAULT '',
+        characters_typed INTEGER NOT NULL DEFAULT 0,
+        total_characters INTEGER NOT NULL DEFAULT 0,
+        typos_corrected INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   Future<void> _onCreate(Database db, int version) async {

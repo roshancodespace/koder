@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: implementation_imports
 import 'package:m3e_core/src/card/m3e_card.dart';
@@ -33,11 +35,30 @@ class ProjectExplorerScreen extends ConsumerStatefulWidget {
 class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
   final TextEditingController _searchController = TextEditingController();
   HumanizationConfig _humanizationConfig = const HumanizationConfig();
+  AutomationCheckpointEntity? _savedCheckpoint;
+  String? _lastCheckedProjectId;
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCheckpointForProject(String? projectId) async {
+    if (projectId == null || projectId.isEmpty) {
+      if (_savedCheckpoint != null) setState(() => _savedCheckpoint = null);
+      _lastCheckedProjectId = null;
+      return;
+    }
+    _lastCheckedProjectId = projectId;
+    final cp = await ref
+        .read(projectExplorerStateProvider.notifier)
+        .getCheckpoint(projectId);
+    if (mounted) {
+      setState(() {
+        _savedCheckpoint = cp;
+      });
+    }
   }
 
   List<_TreeNodeItem> _buildVisibleTree(
@@ -120,7 +141,6 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
                 M3ECardColumn(
                   color: theme.colorScheme.surfaceContainerLow,
                   children: [
@@ -132,10 +152,11 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                             color: theme.colorScheme.primary),
                       ),
                       title: const Text(
-                        'Select Local ZIP File',
+                        'Select ZIP Archive',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: const Text('Pick a .zip archive from your device'),
+                      subtitle:
+                          const Text('Pick a .zip archive from your device'),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () async {
                         Navigator.pop(sheetContext);
@@ -153,18 +174,82 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                       },
                     ),
 
-                    // Option 2: Remote ZIP URL
+                    // Option 2: Single Code File
                     ListTile(
                       leading: CircleAvatar(
                         backgroundColor: theme.colorScheme.secondaryContainer,
-                        child: Icon(Icons.link,
+                        child: Icon(Icons.description,
                             color: theme.colorScheme.secondary),
+                      ),
+                      title: const Text(
+                        'Select Single Code File',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: const Text(
+                          'Import a standalone script, model, or source file'),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () async {
+                        Navigator.pop(sheetContext);
+                        final files = await FilePicker.pickFiles(
+                          type: FileType.any,
+                        );
+                        if (files.isNotEmpty && files.first.path != null) {
+                          final file = files.first;
+                          final filePath = file.path!;
+                          final fileName = file.name;
+                          if (fileName.endsWith('.zip')) {
+                            ref
+                                .read(projectExplorerStateProvider.notifier)
+                                .importProjectFromZipFile(
+                                  fileName.replaceAll('.zip', ''),
+                                  filePath,
+                                );
+                          } else {
+                            final bytes = await File(filePath).readAsBytes();
+                            ref
+                                .read(projectExplorerStateProvider.notifier)
+                                .importProjectFromSingleFile(
+                                  fileName,
+                                  bytes,
+                                );
+                          }
+                        }
+                      },
+                    ),
+
+                    // Option 3: Paste from Clipboard
+                    ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: theme.colorScheme.tertiaryContainer,
+                        child: Icon(Icons.content_paste,
+                            color: theme.colorScheme.tertiary),
+                      ),
+                      title: const Text(
+                        'Paste Code from Clipboard',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: const Text(
+                          'Paste source code directly without creating a file'),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _showPasteCodeDialog(context);
+                      },
+                    ),
+
+                    // Option 4: Remote ZIP URL
+                    ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        child:
+                            Icon(Icons.link, color: theme.colorScheme.primary),
                       ),
                       title: const Text(
                         'Download from ZIP URL',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: const Text('Enter direct URL to a remote .zip archive'),
+                      subtitle: const Text(
+                          'Enter direct URL to a remote .zip archive'),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
                         Navigator.pop(sheetContext);
@@ -172,18 +257,19 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                       },
                     ),
 
-                    // Option 3: GitHub Repo
+                    // Option 5: GitHub Repo
                     ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: theme.colorScheme.tertiaryContainer,
+                        backgroundColor: theme.colorScheme.secondaryContainer,
                         child: Icon(Icons.code,
-                            color: theme.colorScheme.tertiary),
+                            color: theme.colorScheme.secondary),
                       ),
                       title: const Text(
                         'Import from GitHub',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: const Text('Enter GitHub repo URL (e.g. owner/repo)'),
+                      subtitle:
+                          const Text('Enter GitHub repo URL (e.g. owner/repo)'),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
                         Navigator.pop(sheetContext);
@@ -197,6 +283,87 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
           ),
         );
       },
+    );
+  }
+
+  void _showPasteCodeDialog(BuildContext context) {
+    final nameController = TextEditingController(text: 'main.ts');
+    final codeController = TextEditingController();
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Paste Code Directly'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'File Name',
+                    hintText: 'e.g. index.ts, main.dart, script.py',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Text('Code Content:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    TextButton.icon(
+                      icon: const Icon(Icons.paste, size: 16),
+                      label: const Text('Paste Clipboard'),
+                      onPressed: () async {
+                        final data =
+                            await Clipboard.getData(Clipboard.kTextPlain);
+                        if (data?.text != null) {
+                          codeController.text = data!.text!;
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: codeController,
+                  maxLines: 8,
+                  decoration: const InputDecoration(
+                    hintText: 'Paste or type source code here...',
+                    border: OutlineInputBorder(),
+                  ),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.check),
+            label: const Text('Import Code'),
+            onPressed: () {
+              final fileName = nameController.text.trim();
+              final code = codeController.text;
+              if (fileName.isNotEmpty && code.isNotEmpty) {
+                Navigator.pop(ctx);
+                final projectName = fileName.split('.').first;
+                ref
+                    .read(projectExplorerStateProvider.notifier)
+                    .importProjectFromPastedCode(projectName, fileName, code);
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -238,7 +405,9 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
               final name = nameController.text.trim();
               final urlStr = urlController.text.trim();
               final uri = Uri.tryParse(urlStr);
-              if (name.isNotEmpty && uri != null && uri.scheme.startsWith('http')) {
+              if (name.isNotEmpty &&
+                  uri != null &&
+                  uri.scheme.startsWith('http')) {
                 Navigator.pop(ctx);
                 ref
                     .read(projectExplorerStateProvider.notifier)
@@ -393,7 +562,8 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                       min: 0.0,
                       max: 10.0,
                       divisions: 20,
-                      label: '${_humanizationConfig.errorRatePercent.toStringAsFixed(1)}%',
+                      label:
+                          '${_humanizationConfig.errorRatePercent.toStringAsFixed(1)}%',
                       onChanged: (val) {
                         setModalState(() {
                           _humanizationConfig = _humanizationConfig.copyWith(
@@ -422,6 +592,62 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                         setState(() {});
                       },
                     ),
+
+                    // Auto-Indentation & Bracket Awareness
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Auto-Indentation & Bracket Awareness'),
+                      subtitle: const Text(
+                        'Aligns with VS Code auto-indent and auto-closing brackets without duplicate characters',
+                      ),
+                      value: _humanizationConfig.autoIndentationAware &&
+                          _humanizationConfig.autoBracketAware,
+                      onChanged: (enabled) {
+                        setModalState(() {
+                          _humanizationConfig = _humanizationConfig.copyWith(
+                            autoIndentationAware: enabled,
+                            autoBracketAware: enabled,
+                          );
+                        });
+                        setState(() {});
+                      },
+                    ),
+
+                    // Self-Healing Drift Fixer
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Self-Healing Drift Fixer'),
+                      subtitle: const Text(
+                        'Detects unexpected edits, typos, or deleted code; auto-navigates and heals via arrow keys & Backspace',
+                      ),
+                      value: _humanizationConfig.selfHealingFixer,
+                      onChanged: (enabled) {
+                        setModalState(() {
+                          _humanizationConfig = _humanizationConfig.copyWith(
+                            selfHealingFixer: enabled,
+                          );
+                        });
+                        setState(() {});
+                      },
+                    ),
+
+                    // Ctrl Navigation Speedup
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Ctrl Navigation & Word Deletion'),
+                      subtitle: const Text(
+                        'Uses Ctrl+Arrow and Ctrl+Backspace for rapid cursor positioning and fixing',
+                      ),
+                      value: _humanizationConfig.enableCtrlSpeedup,
+                      onChanged: (enabled) {
+                        setModalState(() {
+                          _humanizationConfig = _humanizationConfig.copyWith(
+                            enableCtrlSpeedup: enabled,
+                          );
+                        });
+                        setState(() {});
+                      },
+                    ),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
@@ -440,7 +666,10 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
     );
   }
 
-  Future<void> _startAutomationWithWarning(BuildContext context) async {
+  Future<void> _startAutomationWithWarning(
+    BuildContext context, {
+    AutomationCheckpointEntity? resumeCheckpoint,
+  }) async {
     final hidState = ref.read(bluetoothHidServiceProvider);
     if (hidState.status != HidConnectionStatus.connected) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -462,7 +691,8 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No files selected for automation. Check at least one file.'),
+            content: Text(
+                'No files selected for automation. Check at least one file.'),
           ),
         );
       }
@@ -471,24 +701,36 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
 
     if (!context.mounted) return;
 
+    final isResuming = resumeCheckpoint != null &&
+        (resumeCheckpoint.currentFileIndex > 0 ||
+            resumeCheckpoint.characterOffset > 0);
+
     // MANDATORY FOCUS WARNING MODAL
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded, size: 48, color: Colors.amber),
-        title: const Text('Focus VS Code First!'),
+        icon: const Icon(Icons.warning_amber_rounded,
+            size: 48, color: Colors.amber),
+        title: Text(isResuming
+            ? 'Resume Auto-Typing in VS Code'
+            : 'Focus VS Code First!'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Before starting humanized auto-typing:\n\n'
-              '1. Open VS Code on your computer.\n'
-              '2. Make sure the correct workspace folder is open.\n'
-              '3. Click inside the VS Code window so it is active and focused.\n\n'
-              'The phone will begin sending physical keyboard keystrokes to your workstation.',
-              style: TextStyle(fontSize: 13, height: 1.4),
+            Text(
+              isResuming
+                  ? 'Resuming from File ${resumeCheckpoint.currentFileIndex + 1} (${resumeCheckpoint.activeFileName}) at char offset ${resumeCheckpoint.characterOffset}.\n\n'
+                      '1. Open VS Code on your computer.\n'
+                      '2. Open ${resumeCheckpoint.activeFileName} and focus the editor.\n'
+                      '3. Phone will resume typing seamlessly from where it stopped.'
+                  : 'Before starting humanized auto-typing:\n\n'
+                      '1. Open VS Code on your computer.\n'
+                      '2. Make sure the correct workspace folder is open.\n'
+                      '3. Click inside the VS Code window so it is active and focused.\n\n'
+                      'The phone will begin sending physical keyboard keystrokes to your workstation.',
+              style: const TextStyle(fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 12),
             Container(
@@ -498,8 +740,9 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                'Will type ${filesToAutomate.length} files with ${_humanizationConfig.minWpm}-${_humanizationConfig.maxWpm} WPM and ${_humanizationConfig.errorRatePercent.toStringAsFixed(1)}% typos.',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                'Will type ${filesToAutomate.length} files with ${_humanizationConfig.minWpm}-${_humanizationConfig.maxWpm} WPM, ${_humanizationConfig.errorRatePercent.toStringAsFixed(1)}% typos${_humanizationConfig.selfHealingFixer ? ', self-healing fixer active' : ''}.',
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -511,10 +754,16 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
           ),
           FilledButton.icon(
             icon: const Icon(Icons.play_arrow),
-            label: const Text('VS Code is Focused — Start Typing'),
+            label: Text(isResuming
+                ? 'VS Code is Focused — Resume Typing'
+                : 'VS Code is Focused — Start Typing'),
             onPressed: () {
               Navigator.pop(ctx);
-              _showActiveAutomationModal(context, filesToAutomate);
+              _showActiveAutomationModal(
+                context,
+                filesToAutomate,
+                resumeCheckpoint: resumeCheckpoint,
+              );
             },
           ),
         ],
@@ -524,11 +773,21 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
 
   void _showActiveAutomationModal(
     BuildContext context,
-    List<FileToType> filesToAutomate,
-  ) {
-    ref
-        .read(humanizedTyperProvider.notifier)
-        .startAutomation(filesToAutomate, config: _humanizationConfig);
+    List<FileToType> filesToAutomate, {
+    AutomationCheckpointEntity? resumeCheckpoint,
+  }) {
+    final state = ref.read(projectExplorerStateProvider);
+    final projectId = state.activeProject?.id ?? '';
+    final resumeFileIndex = resumeCheckpoint?.currentFileIndex ?? 0;
+    final resumeCharOffset = resumeCheckpoint?.characterOffset ?? 0;
+
+    ref.read(humanizedTyperProvider.notifier).startAutomation(
+          projectId,
+          filesToAutomate,
+          config: _humanizationConfig,
+          resumeFileIndex: resumeFileIndex,
+          resumeCharOffset: resumeCharOffset,
+        );
 
     showModalBottomSheet<void>(
       context: context,
@@ -541,7 +800,8 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
         return Consumer(
           builder: (modalCtx, modalRef, child) {
             final progress = modalRef.watch(humanizedTyperProvider);
-            final typerNotifier = modalRef.read(humanizedTyperProvider.notifier);
+            final typerNotifier =
+                modalRef.read(humanizedTyperProvider.notifier);
             final theme = Theme.of(modalCtx);
 
             final isPaused = progress.status == AutomationStatus.paused;
@@ -592,7 +852,10 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                         if (isCompleted)
                           IconButton(
                             icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.pop(modalCtx),
+                            onPressed: () {
+                              Navigator.pop(modalCtx);
+                              _loadCheckpointForProject(projectId);
+                            },
                           ),
                       ],
                     ),
@@ -667,6 +930,21 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                                   style: TextStyle(fontSize: 11)),
                             ],
                           ),
+                          Container(
+                              height: 28,
+                              width: 1,
+                              color: theme.colorScheme.outlineVariant),
+                          Column(
+                            children: [
+                              Text('${progress.driftFixesApplied}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Colors.blue)),
+                              const Text('Self-Healed',
+                                  style: TextStyle(fontSize: 11)),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -678,7 +956,8 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                         if (!isCompleted) ...[
                           Expanded(
                             child: OutlinedButton.icon(
-                              icon: Icon(isPaused ? Icons.play_arrow : Icons.pause),
+                              icon: Icon(
+                                  isPaused ? Icons.play_arrow : Icons.pause),
                               label: Text(isPaused ? 'Resume' : 'Pause'),
                               onPressed: () {
                                 if (isPaused) {
@@ -765,9 +1044,19 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
     final state = ref.watch(projectExplorerStateProvider);
     final notifier = ref.read(projectExplorerStateProvider.notifier);
 
-    final visibleNodes = _buildVisibleTree(state.visibleNodes, state.expandedNodeIds);
+    final activeId = state.activeProject?.id;
+    if (activeId != _lastCheckedProjectId) {
+      _lastCheckedProjectId = activeId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadCheckpointForProject(activeId);
+      });
+    }
+
+    final visibleNodes =
+        _buildVisibleTree(state.visibleNodes, state.expandedNodeIds);
     final totalFilesCount = state.nodes.where((n) => !n.isDirectory).length;
-    final includedFilesCount = state.nodes.where((n) => !n.isDirectory && !n.isExcluded).length;
+    final includedFilesCount =
+        state.nodes.where((n) => !n.isDirectory && !n.isExcluded).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -807,7 +1096,8 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
 
             // Top Action Bar & Project Selector
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Column(
                 children: [
                   Row(
@@ -883,13 +1173,15 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                         InkWell(
                           onTap: () => notifier.selectAllNodes(false),
                           child: const Text('All',
-                              style: TextStyle(color: Colors.blue, fontSize: 12)),
+                              style:
+                                  TextStyle(color: Colors.blue, fontSize: 12)),
                         ),
                         const SizedBox(width: 12),
                         InkWell(
                           onTap: () => notifier.selectAllNodes(true),
                           child: const Text('None',
-                              style: TextStyle(color: Colors.blue, fontSize: 12)),
+                              style:
+                                  TextStyle(color: Colors.blue, fontSize: 12)),
                         ),
                         const SizedBox(width: 12),
                         InkWell(
@@ -901,6 +1193,74 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                                   fontWeight: FontWeight.bold)),
                         ),
                       ],
+                    ),
+                  ],
+                  if (state.activeProject != null &&
+                      _savedCheckpoint != null &&
+                      (_savedCheckpoint!.currentFileIndex > 0 ||
+                          _savedCheckpoint!.characterOffset > 0)) ...[
+                    const SizedBox(height: 8),
+                    Card(
+                      color: theme.colorScheme.tertiaryContainer,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.history_toggle_off,
+                                color: theme.colorScheme.onTertiaryContainer),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Saved Automation Progress',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color:
+                                          theme.colorScheme.onTertiaryContainer,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    'File ${_savedCheckpoint!.currentFileIndex + 1} (${_savedCheckpoint!.activeFileName}) - offset ${_savedCheckpoint!.characterOffset}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: theme
+                                          .colorScheme.onTertiaryContainer
+                                          .withAlpha(200),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            FilledButton.tonal(
+                              onPressed: () => _startAutomationWithWarning(
+                                context,
+                                resumeCheckpoint: _savedCheckpoint,
+                              ),
+                              child: const Text('Resume',
+                                  style: TextStyle(fontSize: 12)),
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 16),
+                              tooltip: 'Discard Checkpoint',
+                              onPressed: () async {
+                                await notifier
+                                    .clearCheckpoint(state.activeProject!.id);
+                                setState(() {
+                                  _savedCheckpoint = null;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ],
@@ -1042,13 +1402,35 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                       onPressed: () => _showHumanizationSettings(context),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton.icon(
-                        icon: const Icon(Icons.play_arrow),
-                        label: Text('Auto-Type ($includedFilesCount Files)'),
+                    if (_savedCheckpoint != null &&
+                        (_savedCheckpoint!.currentFileIndex > 0 ||
+                            _savedCheckpoint!.characterOffset > 0)) ...[
+                      Expanded(
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.play_arrow),
+                          label: Text(
+                              'Resume (${_savedCheckpoint!.currentFileIndex + 1}/$includedFilesCount)'),
+                          onPressed: () => _startAutomationWithWarning(
+                            context,
+                            resumeCheckpoint: _savedCheckpoint,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton.filledTonal(
+                        icon: const Icon(Icons.refresh, size: 20),
+                        tooltip: 'Start from beginning',
                         onPressed: () => _startAutomationWithWarning(context),
                       ),
-                    ),
+                    ] else ...[
+                      Expanded(
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.play_arrow),
+                          label: Text('Auto-Type ($includedFilesCount Files)'),
+                          onPressed: () => _startAutomationWithWarning(context),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

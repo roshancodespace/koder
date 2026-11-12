@@ -69,5 +69,49 @@ void main() {
       expect(paths.any((p) => p.contains('passwd')), isFalse);
       expect(paths, contains('safe/index.ts'));
     });
+
+    test('importFromSingleFile imports single code file and persists node',
+        () async {
+      final codeBytes = utf8.encode('console.log("Hello from single file");');
+      final project = await importer.importFromSingleFile(
+        'script.ts',
+        codeBytes,
+        customProjectName: 'My Single Script',
+      );
+
+      expect(project.name, 'My Single Script');
+      expect(project.source, 'single_file');
+
+      final nodes = await repository.getFileNodesByProject(project.id);
+      expect(nodes.length, 1);
+      expect(nodes.first.name, 'script.ts');
+      expect(nodes.first.path, 'script.ts');
+      expect(nodes.first.isDirectory, isFalse);
+
+      final content =
+          await importer.getFileContent(project.rootPath, 'script.ts');
+      expect(content, 'console.log("Hello from single file");');
+    });
+
+    test('importFromPastedCode creates project and extracts code file',
+        () async {
+      const code = 'def main():\n    print("Hello from clipboard")\n';
+      final project = await importer.importFromPastedCode(
+        'Clipboard Project',
+        'main.py',
+        code,
+      );
+
+      expect(project.name, 'Clipboard Project');
+      expect(project.source, 'pasted_code');
+
+      final nodes = await repository.getFileNodesByProject(project.id);
+      expect(nodes.length, 1);
+      expect(nodes.first.path, 'main.py');
+
+      final content =
+          await importer.getFileContent(project.rootPath, 'main.py');
+      expect(content, code);
+    });
   });
 }

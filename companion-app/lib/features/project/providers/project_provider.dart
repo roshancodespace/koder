@@ -213,7 +213,8 @@ class ProjectNotifier extends StateNotifier<ProjectExplorerState> {
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final project = await _importer.importFromGitHub(owner, repo, branch: branch);
+      final project =
+          await _importer.importFromGitHub(owner, repo, branch: branch);
       await loadProjects();
       await selectProject(project.id);
     } catch (e) {
@@ -222,6 +223,58 @@ class ProjectNotifier extends StateNotifier<ProjectExplorerState> {
         errorMessage: e.toString(),
       );
     }
+  }
+
+  Future<void> importProjectFromSingleFile(
+    String fileName,
+    List<int> fileBytes, {
+    String? customProjectName,
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final project = await _importer.importFromSingleFile(
+        fileName,
+        fileBytes,
+        customProjectName: customProjectName,
+      );
+      await loadProjects();
+      await selectProject(project.id);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  Future<void> importProjectFromPastedCode(
+    String projectName,
+    String fileName,
+    String code,
+  ) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final project = await _importer.importFromPastedCode(
+        projectName,
+        fileName,
+        code,
+      );
+      await loadProjects();
+      await selectProject(project.id);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  Future<AutomationCheckpointEntity?> getCheckpoint(String projectId) async {
+    return _repository.getAutomationCheckpoint(projectId);
+  }
+
+  Future<void> clearCheckpoint(String projectId) async {
+    await _repository.clearAutomationCheckpoint(projectId);
   }
 
   Future<void> selectAllNodes(bool isExcluded) async {
@@ -253,7 +306,10 @@ class ProjectNotifier extends StateNotifier<ProjectExplorerState> {
     final updatedNodes = <FileNodeEntity>[];
     for (final node in state.nodes) {
       final shouldExclude = commonPatterns.any(
-        (p) => node.path.contains('/$p/') || node.path.startsWith('$p/') || node.path == p,
+        (p) =>
+            node.path.contains('/$p/') ||
+            node.path.startsWith('$p/') ||
+            node.path == p,
       );
       if (shouldExclude && !node.isExcluded) {
         await _repository.updateNodeExclusion(node.id, true);
@@ -280,7 +336,8 @@ class ProjectNotifier extends StateNotifier<ProjectExplorerState> {
     }).toList();
 
     for (final node in validFiles) {
-      final content = await _importer.getFileContent(active.rootPath, node.path);
+      final content =
+          await _importer.getFileContent(active.rootPath, node.path);
       filesToAutomate.add(FileToType(
         relativePath: node.path,
         content: content,

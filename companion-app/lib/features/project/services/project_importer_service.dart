@@ -56,6 +56,34 @@ class ProjectImporterService {
     );
   }
 
+  Future<Directory> _getProjectTargetDir(
+    String projectId, {
+    String? customRootPath,
+  }) async {
+    if (customRootPath != null && customRootPath.isNotEmpty) {
+      final dir = Directory(customRootPath);
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      return dir;
+    }
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final dir = Directory('${appDir.path}/koder_projects/$projectId');
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      return dir;
+    } catch (_) {
+      final dir =
+          Directory('${Directory.systemTemp.path}/koder_projects/$projectId');
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      return dir;
+    }
+  }
+
   /// Imports a project from in-memory ZIP archive bytes (e.g. from file picker or download)
   /// and extracts the files to persistent storage for automation typing.
   Future<ProjectEntity> importFromZipBytes(
@@ -66,27 +94,8 @@ class ProjectImporterService {
   }) async {
     final archive = ZipDecoder().decodeBytes(zipBytes, verify: false);
     final projectId = 'proj-${DateTime.now().microsecondsSinceEpoch}';
-
-    Directory targetDir;
-    if (customRootPath != null && customRootPath.isNotEmpty) {
-      targetDir = Directory(customRootPath);
-      if (!await targetDir.exists()) {
-        await targetDir.create(recursive: true);
-      }
-    } else {
-      try {
-        final appDir = await getApplicationDocumentsDirectory();
-        targetDir = Directory('${appDir.path}/koder_projects/$projectId');
-        if (!await targetDir.exists()) {
-          await targetDir.create(recursive: true);
-        }
-      } catch (_) {
-        targetDir = Directory('${Directory.systemTemp.path}/koder_projects/$projectId');
-        if (!await targetDir.exists()) {
-          await targetDir.create(recursive: true);
-        }
-      }
-    }
+    final targetDir =
+        await _getProjectTargetDir(projectId, customRootPath: customRootPath);
 
     final relativePaths = <String>[];
 
@@ -113,6 +122,56 @@ class ProjectImporterService {
       source,
       targetDir.path,
       relativePaths,
+    );
+  }
+
+  /// Imports a project consisting of a single code file (e.g. from file picker).
+  Future<ProjectEntity> importFromSingleFile(
+    String fileName,
+    List<int> fileBytes, {
+    String? customProjectName,
+  }) async {
+    final sanitizedName = _sanitizeZipPath(fileName);
+    final projectName =
+        (customProjectName != null && customProjectName.trim().isNotEmpty)
+            ? customProjectName.trim()
+            : sanitizedName;
+    final projectId = 'proj-${DateTime.now().microsecondsSinceEpoch}';
+    final targetDir = await _getProjectTargetDir(projectId);
+
+    final outFile = File('${targetDir.path}/$sanitizedName');
+    await outFile.parent.create(recursive: true);
+    await outFile.writeAsBytes(fileBytes);
+
+    return _persistProjectWithId(
+      projectId,
+      projectName,
+      'single_file',
+      targetDir.path,
+      [sanitizedName],
+    );
+  }
+
+  /// Imports a project created from pasted source code.
+  Future<ProjectEntity> importFromPastedCode(
+    String projectName,
+    String fileName,
+    String code,
+  ) async {
+    final sanitizedName = _sanitizeZipPath(fileName);
+    final projectId = 'proj-${DateTime.now().microsecondsSinceEpoch}';
+    final targetDir = await _getProjectTargetDir(projectId);
+
+    final outFile = File('${targetDir.path}/$sanitizedName');
+    await outFile.parent.create(recursive: true);
+    await outFile.writeAsString(code);
+
+    return _persistProjectWithId(
+      projectId,
+      projectName.trim().isNotEmpty ? projectName.trim() : sanitizedName,
+      'pasted_code',
+      targetDir.path,
+      [sanitizedName],
     );
   }
 

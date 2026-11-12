@@ -23,6 +23,10 @@ export interface EditorState {
   selectionRange: EditorRange | null;
   workspaceFolders: string[];
   diagnostics: DiagnosticSummary;
+  activeContent?: string | null;
+  lineCount?: number;
+  tabSize?: number;
+  insertSpaces?: boolean;
   timestamp: number;
 }
 
@@ -73,6 +77,16 @@ export class EditorMonitor implements vscode.Disposable {
         this._updateStateImmediately();
       })
     );
+
+    // Document text changes (debounced to broadcast live typing changes)
+    this._disposables.push(
+      vscode.workspace.onDidChangeTextDocument((event) => {
+        const activeDoc = vscode.window.activeTextEditor?.document;
+        if (activeDoc && event.document.uri.toString() === activeDoc.uri.toString()) {
+          this._scheduleDebouncedUpdate();
+        }
+      })
+    );
   }
 
   public computeEditorState(): EditorState {
@@ -113,8 +127,19 @@ export class EditorMonitor implements vscode.Disposable {
     // Compute diagnostics count for active document
     let errorCount = 0;
     let warningCount = 0;
+    let activeContent: string | null = null;
+    let lineCount = 0;
+    let tabSize = 2;
+    let insertSpaces = true;
 
     if (document) {
+      lineCount = document.lineCount;
+      const text = document.getText();
+      // Cap at 500KB to prevent WebSocket memory bloat
+      if (text.length <= 500000) {
+        activeContent = text;
+      }
+
       const diagnostics = vscode.languages.getDiagnostics(document.uri);
       for (const diag of diagnostics) {
         if (diag.severity === vscode.DiagnosticSeverity.Error) {
@@ -122,6 +147,15 @@ export class EditorMonitor implements vscode.Disposable {
         } else if (diag.severity === vscode.DiagnosticSeverity.Warning) {
           warningCount++;
         }
+      }
+    }
+
+    if (activeEditor) {
+      if (typeof activeEditor.options.tabSize === 'number') {
+        tabSize = activeEditor.options.tabSize;
+      }
+      if (typeof activeEditor.options.insertSpaces === 'boolean') {
+        insertSpaces = activeEditor.options.insertSpaces;
       }
     }
 
@@ -136,6 +170,10 @@ export class EditorMonitor implements vscode.Disposable {
         errorCount,
         warningCount,
       },
+      activeContent,
+      lineCount,
+      tabSize,
+      insertSpaces,
       timestamp: Date.now(),
     };
   }

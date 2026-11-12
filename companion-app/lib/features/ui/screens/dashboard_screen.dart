@@ -801,7 +801,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             children: [
               Text(
                 'Current version: v${updateInfo.currentVersion}\nLatest version: v${updateInfo.latestVersion}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
               const SizedBox(height: 12),
               const Text(
@@ -849,7 +850,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     action: SnackBarAction(
                       label: 'Copy URL',
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: updateInfo.downloadUrl));
+                        Clipboard.setData(
+                            ClipboardData(text: updateInfo.downloadUrl));
                       },
                     ),
                   ),

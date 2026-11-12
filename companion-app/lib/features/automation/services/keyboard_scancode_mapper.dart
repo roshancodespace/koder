@@ -8,6 +8,23 @@ class HidKeyStroke {
   static const enter = HidKeyStroke(0x00, 0x28);
   static const tab = HidKeyStroke(0x00, 0x2B);
   static const space = HidKeyStroke(0x00, 0x2C);
+  static const escape = HidKeyStroke(0x00, 0x29);
+
+  // Navigation Keycodes (USB HID Page 0x07)
+  static const arrowRight = HidKeyStroke(0x00, 0x4F);
+  static const arrowLeft = HidKeyStroke(0x00, 0x50);
+  static const arrowDown = HidKeyStroke(0x00, 0x51);
+  static const arrowUp = HidKeyStroke(0x00, 0x52);
+  static const home = HidKeyStroke(0x00, 0x4A);
+  static const end = HidKeyStroke(0x00, 0x4D);
+  static const deleteForward = HidKeyStroke(0x00, 0x4C);
+
+  // Ctrl Combinations for rapid word navigation and editing
+  static const ctrlArrowLeft = HidKeyStroke(0x01, 0x50);
+  static const ctrlArrowRight = HidKeyStroke(0x01, 0x4F);
+  static const ctrlBackspace = HidKeyStroke(0x01, 0x2A);
+  static const ctrlDelete = HidKeyStroke(0x01, 0x4C);
+  static const ctrlA = HidKeyStroke(0x01, 0x04);
 }
 
 class KeyboardScancodeMapper {

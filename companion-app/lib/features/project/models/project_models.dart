@@ -56,6 +56,54 @@ class ProjectEntity {
   }
 }
 
+class AutomationCheckpointEntity {
+  final String projectId;
+  final int currentFileIndex;
+  final int characterOffset;
+  final String activeFileName;
+  final int charactersTyped;
+  final int totalCharacters;
+  final int typosCorrected;
+  final int updatedAt;
+
+  const AutomationCheckpointEntity({
+    required this.projectId,
+    required this.currentFileIndex,
+    required this.characterOffset,
+    required this.activeFileName,
+    required this.charactersTyped,
+    required this.totalCharacters,
+    required this.typosCorrected,
+    required this.updatedAt,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'project_id': projectId,
+      'current_file_index': currentFileIndex,
+      'character_offset': characterOffset,
+      'active_file_name': activeFileName,
+      'characters_typed': charactersTyped,
+      'total_characters': totalCharacters,
+      'typos_corrected': typosCorrected,
+      'updated_at': updatedAt,
+    };
+  }
+
+  factory AutomationCheckpointEntity.fromMap(Map<String, dynamic> map) {
+    return AutomationCheckpointEntity(
+      projectId: map['project_id'] as String,
+      currentFileIndex: map['current_file_index'] as int? ?? 0,
+      characterOffset: map['character_offset'] as int? ?? 0,
+      activeFileName: map['active_file_name'] as String? ?? '',
+      charactersTyped: map['characters_typed'] as int? ?? 0,
+      totalCharacters: map['total_characters'] as int? ?? 0,
+      typosCorrected: map['typos_corrected'] as int? ?? 0,
+      updatedAt: map['updated_at'] as int? ?? 0,
+    );
+  }
+}
+
 class FileNodeEntity {
   final String id;
   final String projectId;

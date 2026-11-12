@@ -15,6 +15,9 @@ abstract interface class ProjectRepository {
   Future<void> deleteExclusionRule(String id);
   Future<void> logSessionEvent(SessionLogEntity log);
   Future<List<SessionLogEntity>> getSessionLogs({int limit = 100});
+  Future<void> saveAutomationCheckpoint(AutomationCheckpointEntity checkpoint);
+  Future<AutomationCheckpointEntity?> getAutomationCheckpoint(String projectId);
+  Future<void> clearAutomationCheckpoint(String projectId);
 }
 
 class ProjectRepositoryImpl implements ProjectRepository {
@@ -157,6 +160,41 @@ class ProjectRepositoryImpl implements ProjectRepository {
     );
     return rows.map(SessionLogEntity.fromMap).toList();
   }
+
+  @override
+  Future<void> saveAutomationCheckpoint(
+      AutomationCheckpointEntity checkpoint) async {
+    final db = await _dbProvider();
+    await db.insert(
+      'automation_checkpoints',
+      checkpoint.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  @override
+  Future<AutomationCheckpointEntity?> getAutomationCheckpoint(
+      String projectId) async {
+    final db = await _dbProvider();
+    final rows = await db.query(
+      'automation_checkpoints',
+      where: 'project_id = ?',
+      whereArgs: [projectId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return AutomationCheckpointEntity.fromMap(rows.first);
+  }
+
+  @override
+  Future<void> clearAutomationCheckpoint(String projectId) async {
+    final db = await _dbProvider();
+    await db.delete(
+      'automation_checkpoints',
+      where: 'project_id = ?',
+      whereArgs: [projectId],
+    );
+  }
 }
 
 /// In-memory repository implementation for unit testing and offline preview
@@ -165,6 +203,7 @@ class InMemoryProjectRepository implements ProjectRepository {
   final Map<String, FileNodeEntity> _nodes = {};
   final Map<String, ExclusionRuleEntity> _rules = {};
   final List<SessionLogEntity> _logs = [];
+  final Map<String, AutomationCheckpointEntity> _checkpoints = {};
 
   @override
   Future<void> insertProject(ProjectEntity project) async {
@@ -239,5 +278,22 @@ class InMemoryProjectRepository implements ProjectRepository {
     final list = List<SessionLogEntity>.from(_logs);
     list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return list.take(limit).toList();
+  }
+
+  @override
+  Future<void> saveAutomationCheckpoint(
+      AutomationCheckpointEntity checkpoint) async {
+    _checkpoints[checkpoint.projectId] = checkpoint;
+  }
+
+  @override
+  Future<AutomationCheckpointEntity?> getAutomationCheckpoint(
+      String projectId) async {
+    return _checkpoints[projectId];
+  }
+
+  @override
+  Future<void> clearAutomationCheckpoint(String projectId) async {
+    _checkpoints.remove(projectId);
   }
 }
