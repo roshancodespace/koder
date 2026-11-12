@@ -63,14 +63,14 @@ flutter run
 
 ### Build APK
 ```bash
-# Build debug APK
-flutter build apk --debug
+# Build debug APK (arm64)
+flutter build apk --debug --target-platform android-arm64
 
-# Build production release APK
-flutter build apk --release
+# Build production release APK (arm64 only)
+flutter build apk --release --target-platform android-arm64 --split-per-abi
 ```
 
-Output APK will be generated at `build/app/outputs/flutter-apk/app-release.apk`.
+Output APK will be generated at `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`.
 
 ---
 

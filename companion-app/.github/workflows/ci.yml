@@ -48,5 +48,5 @@ jobs:
       - name: Run unit & widget tests
         run: flutter test --coverage
 
-      - name: Build debug APK
-        run: flutter build apk --debug
+      - name: Build debug APK (arm64)
+        run: flutter build apk --debug --target-platform android-arm64
