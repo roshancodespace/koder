@@ -44,7 +44,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Implement native Kotlin BluetoothKeyboardManager platform channel with SDP registration, scancode tables, and capability detection
+- [x] 02-01-PLAN.md — Implement native Kotlin BluetoothKeyboardManager platform channel with SDP registration, scancode tables, and capability detection
 - [ ] 02-02-PLAN.md — Implement CompanionForegroundService (connectedDevice), notification channel, and Flutter Dart platform channel client
 
 ### Phase 3: VS Code Extension Core, Editor Awareness & Safe Workspace Operations
