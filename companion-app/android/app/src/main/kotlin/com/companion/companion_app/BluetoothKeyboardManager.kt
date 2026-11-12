@@ -25,6 +25,11 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
     private val mainHandler = Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
 
+    // Spoofed Keyboard Identity (Defaults to standard Logitech MX Keys)
+    private var spoofDeviceName: String = "Logitech MX Keys"
+    private var spoofProvider: String = "Logitech"
+    private var spoofDescription: String = "Logitech MX Keys Advanced Wireless Keyboard"
+
     // 8-byte Standard USB Boot Keyboard Report Descriptor
     private val descriptor = byteArrayOf(
         0x05.toByte(), 0x01.toByte(), // Usage Page (Generic Desktop)
@@ -148,10 +153,14 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
 
     fun registerSdp(): Boolean {
         val device = hidDevice ?: return false
+        try {
+            bluetoothAdapter?.name = spoofDeviceName
+        } catch (_: SecurityException) {}
+
         val sdp = BluetoothHidDeviceAppSdpSettings(
-            "VS Code Companion",
-            "Android Companion HID Keyboard",
-            "Companion",
+            spoofDeviceName,
+            spoofDescription,
+            spoofProvider,
             0x40.toByte(), // Subclass: Keyboard
             descriptor
         )
@@ -171,10 +180,77 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
         return device.unregisterApp()
     }
 
-    fun connect(macAddress: String): Boolean {
-        val device = hidDevice ?: return false
-        val target = bluetoothAdapter?.getRemoteDevice(macAddress) ?: return false
-        return device.connect(target)
+    fun setDeviceSpoof(deviceName: String, provider: String, description: String): Boolean {
+        spoofDeviceName = deviceName
+        spoofProvider = provider
+        spoofDescription = description
+
+        try {
+            bluetoothAdapter?.name = deviceName
+        } catch (_: SecurityException) {}
+
+        if (hidDevice != null && isRegistered) {
+            unregisterSdp()
+            return registerSdp()
+        }
+        return true
+    }
+
+    fun makeDiscoverable(durationSeconds: Int = 300): Boolean {
+        return try {
+            try {
+                bluetoothAdapter?.name = spoofDeviceName
+            } catch (_: SecurityException) {}
+
+            val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, durationSeconds)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun connect(macAddress: String): Map<String, Any> {
+        val adapter = bluetoothAdapter
+        if (adapter == null || !adapter.isEnabled) {
+            return mapOf("success" to false, "error" to "Bluetooth adapter is turned OFF on this device.")
+        }
+        val device = hidDevice
+        if (device == null) {
+            initProxy()
+            return mapOf(
+                "success" to false,
+                "error" to "Bluetooth HID profile proxy is still initializing. Please retry in 2 seconds."
+            )
+        }
+        if (!isRegistered) {
+            registerSdp()
+        }
+        val target = try {
+            adapter.getRemoteDevice(macAddress)
+        } catch (e: Exception) {
+            return mapOf(
+                "success" to false,
+                "error" to "Invalid Bluetooth MAC address: $macAddress (${e.message})"
+            )
+        }
+
+        return try {
+            val initiated = device.connect(target)
+            if (initiated) {
+                mapOf("success" to true, "error" to "")
+            } else {
+                mapOf(
+                    "success" to false,
+                    "error" to "Workstation rejected connection. Standard Bluetooth keyboards are connected from the PC: tap 'Expose Device' below and select '$spoofDeviceName' in your computer's Bluetooth settings."
+                )
+            }
+        } catch (e: Exception) {
+            mapOf("success" to false, "error" to (e.message ?: "Failed to connect to device"))
+        }
     }
 
     fun disconnect(): Boolean {
@@ -249,8 +325,32 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
                 if (mac.isNullOrEmpty()) {
                     result.error("INVALID_ARGUMENT", "macAddress is required", null)
                 } else {
-                    result.success(connect(mac))
+                    val connResult = connect(mac)
+                    if (connResult["success"] == true) {
+                        result.success(true)
+                    } else {
+                        result.error("CONNECT_FAILED", connResult["error"] as String, null)
+                    }
                 }
+            }
+            "setDeviceSpoof" -> {
+                val name = call.argument<String>("deviceName") ?: "Logitech MX Keys"
+                val provider = call.argument<String>("provider") ?: "Logitech"
+                val desc = call.argument<String>("description") ?: "Wireless Keyboard"
+                result.success(setDeviceSpoof(name, provider, desc))
+            }
+            "makeDiscoverable" -> {
+                val duration = call.argument<Int>("duration") ?: 300
+                result.success(makeDiscoverable(duration))
+            }
+            "getSpoofProfile" -> {
+                result.success(
+                    mapOf(
+                        "deviceName" to spoofDeviceName,
+                        "provider" to spoofProvider,
+                        "description" to spoofDescription
+                    )
+                )
             }
             "disconnect" -> {
                 result.success(disconnect())

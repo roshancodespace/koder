@@ -125,15 +125,66 @@ class BluetoothHidNotifier extends StateNotifier<HidState> {
     } catch (_) {}
   }
 
+  Future<bool> setSpoofPreset(KeyboardSpoofPreset preset) async {
+    try {
+      final success =
+          await _methodChannel.invokeMethod<bool>('setDeviceSpoof', {
+        'deviceName': preset.deviceName,
+        'provider': preset.provider,
+        'description': preset.description,
+      });
+      state = state.copyWith(activeSpoof: preset);
+      return success ?? false;
+    } catch (e) {
+      state = state.copyWith(lastError: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> makeDiscoverable({int durationSeconds = 300}) async {
+    try {
+      final success = await _methodChannel.invokeMethod<bool>(
+        'makeDiscoverable',
+        {'duration': durationSeconds},
+      );
+      if (success == true) {
+        state = state.copyWith(isDiscoverable: true, lastError: null);
+      }
+      return success ?? false;
+    } catch (e) {
+      state = state.copyWith(lastError: e.toString());
+      return false;
+    }
+  }
+
+  void clearError() {
+    state = state.copyWith(lastError: null);
+  }
+
   Future<bool> connect(String macAddress) async {
     try {
       state = state.copyWith(
         status: HidConnectionStatus.connecting,
         connectedDeviceAddress: macAddress,
+        lastError: null,
       );
       final connected = await _methodChannel
           .invokeMethod<bool>('connect', {'macAddress': macAddress});
-      return connected ?? false;
+      if (connected != true) {
+        state = state.copyWith(
+          status: HidConnectionStatus.disconnected,
+          lastError:
+              'Workstation did not accept incoming connection. Standard Bluetooth keyboards are connected from the PC: tap "Expose Device" below to allow your computer to connect.',
+        );
+        return false;
+      }
+      return true;
+    } on PlatformException catch (e) {
+      state = state.copyWith(
+        status: HidConnectionStatus.error,
+        lastError: e.message ?? e.toString(),
+      );
+      return false;
     } catch (e) {
       state = state.copyWith(
         status: HidConnectionStatus.error,

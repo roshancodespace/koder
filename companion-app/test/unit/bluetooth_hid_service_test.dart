@@ -74,6 +74,10 @@ void main() {
             return true;
           case 'sendKeyPress':
             return true;
+          case 'setDeviceSpoof':
+            return true;
+          case 'makeDiscoverable':
+            return true;
           default:
             return null;
         }
@@ -120,6 +124,30 @@ void main() {
           methodCalls.firstWhere((c) => c.method == 'sendKeyPress');
       expect(sendCall.arguments['modifier'], equals(0x01));
       expect(sendCall.arguments['keyCode'], equals(0x04));
+    });
+
+    test('setSpoofPreset updates activeSpoof and invokes setDeviceSpoof',
+        () async {
+      final applePreset =
+          KeyboardSpoofPreset.presets.firstWhere((p) => p.id == 'apple_magic');
+      final result = await notifier.setSpoofPreset(applePreset);
+      expect(result, isTrue);
+      expect(notifier.state.activeSpoof, equals(applePreset));
+      expect(methodCalls.map((c) => c.method), contains('setDeviceSpoof'));
+      final spoofCall =
+          methodCalls.firstWhere((c) => c.method == 'setDeviceSpoof');
+      expect(spoofCall.arguments['deviceName'], equals(applePreset.deviceName));
+      expect(spoofCall.arguments['provider'], equals(applePreset.provider));
+    });
+
+    test('makeDiscoverable calls channel and updates state', () async {
+      final result = await notifier.makeDiscoverable(durationSeconds: 300);
+      expect(result, isTrue);
+      expect(notifier.state.isDiscoverable, isTrue);
+      expect(methodCalls.map((c) => c.method), contains('makeDiscoverable'));
+      final discCall =
+          methodCalls.firstWhere((c) => c.method == 'makeDiscoverable');
+      expect(discCall.arguments['duration'], equals(300));
     });
   });
 }
