@@ -6,7 +6,7 @@ The VS Code Companion System is developed as two completely independent subproje
 
 ## Phases
 
-- [ ] **Phase 1: Project Scaffolding, Tooling & CI Setup** - Bootstrap independent `companion-app/` and `vscode-extension/` roots with formatting, linting, and CI pipelines.
+- [x] **Phase 1: Project Scaffolding, Tooling & CI Setup** - Bootstrap independent `companion-app/` and `vscode-extension/` roots with formatting, linting, and CI pipelines.
 - [ ] **Phase 2: Android Bluetooth HID Platform Channel & Foreground Lifecycle** - Native Kotlin `BluetoothHidDevice` implementation, scancode mapping, capability probing, and `connectedDevice` foreground service.
 - [ ] **Phase 3: VS Code Extension Core, Editor Awareness & Safe Workspace Operations** - TypeScript extension, editor event telemetry, QuickPick/InputBox workflows, path traversal defense, and collision-safe file creation.
 - [ ] **Phase 4: Bi-Directional WebSocket Protocol & Networking Engine** - Extension WebSocket server, Android client, versioned JSON-RPC envelope, loopback USB mode, and authenticated LAN pairing.
@@ -28,8 +28,8 @@ The VS Code Companion System is developed as two completely independent subproje
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Bootstrap companion-app with Flutter Material 3 skeleton, dependencies, lint rules, and .github/workflows/ci.yml
-- [ ] 01-02-PLAN.md — Bootstrap vscode-extension with TypeScript configuration, package manifest, test runner, and .github/workflows/ci.yml
+- [x] 01-01-PLAN.md — Bootstrap companion-app with Flutter Material 3 skeleton, dependencies, lint rules, and .github/workflows/ci.yml
+- [x] 01-02-PLAN.md — Bootstrap vscode-extension with TypeScript configuration, package manifest, test runner, and .github/workflows/ci.yml
 
 ### Phase 2: Android Bluetooth HID Platform Channel & Foreground Lifecycle
 **Goal**: Implement and verify the native Kotlin Bluetooth HID Device platform channel, sending standard keyboard scan codes and maintaining an active session via an Android 14+ compliant foreground service.
@@ -118,7 +118,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Project Scaffolding, Tooling & CI Setup | 0/2 | Not started | - |
+| 1. Project Scaffolding, Tooling & CI Setup | 2/2 | Complete | 2026-11-12 |
 | 2. Android Bluetooth HID Platform Channel & Foreground Lifecycle | 0/2 | Not started | - |
 | 3. VS Code Extension Core, Editor Awareness & Safe Workspace Operations | 0/2 | Not started | - |
 | 4. Bi-Directional WebSocket Protocol & Networking Engine | 0/2 | Not started | - |

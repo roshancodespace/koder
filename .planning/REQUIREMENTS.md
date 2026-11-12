@@ -15,7 +15,7 @@
 
 ### VS Code Extension & Safe Workspace Operations
 
-- [ ] **EXT-01**: Extension initializes in TypeScript with minimal dependencies, utilizing the official VS Code Extension API.
+- [x] **EXT-01**: Extension initializes in TypeScript with minimal dependencies, utilizing the official VS Code Extension API.
 - [ ] **EXT-02**: Extension monitors and emits real-time editor state changes: active document URI, language ID, cursor position, selection range, and diagnostic error/warning counts.
 - [ ] **EXT-03**: Extension provides a floating command workflow using native `vscode.window.showInputBox` and `vscode.window.createQuickPick` triggered by keyboard shortcut or companion action.
 - [ ] **EXT-04**: Path validator normalizes inputs using `vscode.Uri.joinPath` and rejects any path attempting traversal outside active `workspace.workspaceFolders`.
@@ -38,15 +38,15 @@
 
 ### Companion UI & Material 3 Experience
 
-- [ ] **UI-01**: Flutter application provides a clean Material 3 design supporting dynamic light and dark themes.
+- [x] **UI-01**: Flutter application provides a clean Material 3 design supporting dynamic light and dark themes.
 - [ ] **UI-02**: UI displays a persistent connection badge (Bluetooth HID status and WebSocket status) and real-time editor diagnostic counters.
 - [ ] **UI-03**: UI organizes features into a clean navigation layout: Connection Controller, Editor Overview, Quick Commands Pad, and Project Explorer.
 - [ ] **UI-04**: Non-blocking asynchronous state architecture ensures the UI remains responsive during Bluetooth events, network retries, and file imports.
 
 ### Build, CI/CD & Release Automation
 
-- [ ] **CI-01**: `companion-app` includes `.github/workflows/ci.yml` running Flutter formatting, static analysis (`flutter analyze`), unit tests (`flutter test`), and APK debug compilation.
-- [ ] **CI-02**: `vscode-extension` includes `.github/workflows/ci.yml` running TypeScript compilation (`tsc`), ESLint, unit/extension tests, and VSIX packaging verification.
+- [x] **CI-01**: `companion-app` includes `.github/workflows/ci.yml` running Flutter formatting, static analysis (`flutter analyze`), unit tests (`flutter test`), and APK debug compilation.
+- [x] **CI-02**: `vscode-extension` includes `.github/workflows/ci.yml` running TypeScript compilation (`tsc`), ESLint, unit/extension tests, and VSIX packaging verification.
 - [ ] **REL-01**: `companion-app` includes `.github/workflows/release.yml` triggered by version tags (`companion-v*`) or manual dispatch to build release APKs with SHA256 checksums and GitHub Release publishing.
 - [ ] **REL-02**: `vscode-extension` includes `.github/workflows/release.yml` triggered by version tags (`extension-v*`) or manual dispatch to package production VSIX artifacts with SHA256 checksums and GitHub Release publishing.
 
@@ -78,7 +78,7 @@
 | HID-03 | Phase 2 | Pending |
 | HID-04 | Phase 2 | Pending |
 | HID-05 | Phase 2 | Pending |
-| EXT-01 | Phase 1 | Pending |
+| EXT-01 | Phase 1 | Complete |
 | EXT-02 | Phase 3 | Pending |
 | EXT-03 | Phase 3 | Pending |
 | EXT-04 | Phase 3 | Pending |
@@ -92,12 +92,12 @@
 | PROJ-02 | Phase 5 | Pending |
 | PROJ-03 | Phase 5 | Pending |
 | PROJ-04 | Phase 5 | Pending |
-| UI-01 | Phase 1 | Pending |
+| UI-01 | Phase 1 | Complete |
 | UI-02 | Phase 5 | Pending |
 | UI-03 | Phase 5 | Pending |
 | UI-04 | Phase 5 | Pending |
-| CI-01 | Phase 1 | Pending |
-| CI-02 | Phase 1 | Pending |
+| CI-01 | Phase 1 | Complete |
+| CI-02 | Phase 1 | Complete |
 | REL-01 | Phase 6 | Pending |
 | REL-02 | Phase 6 | Pending |
 
