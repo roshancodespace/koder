@@ -7,6 +7,7 @@ import android.bluetooth.BluetoothHidDeviceAppQosSettings
 import android.bluetooth.BluetoothHidDeviceAppSdpSettings
 import android.bluetooth.BluetoothProfile
 import android.content.Context
+import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import io.flutter.plugin.common.EventChannel
