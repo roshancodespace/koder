@@ -108,8 +108,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 06-01: Perform end-to-end integration testing, boundary verification, and documentation.
-- [ ] 06-02: Implement `.github/workflows/release.yml` in both projects with SHA256 checksum generation and release artifact automation.
+- [ ] 06-01-PLAN.md — End-to-End integration verification, architectural boundary audit, and developer documentation
+- [ ] 06-02-PLAN.md — Independent GitHub Actions release workflows with SHA256 checksum publishing
 
 ## Progress
 
