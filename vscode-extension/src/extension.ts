@@ -3,6 +3,7 @@ import { EditorMonitor, EditorState } from './editor/editorMonitor';
 import { validateWorkspacePath } from './workspace/pathValidator';
 import { createWorkspaceFileSafely } from './workspace/safeFileManager';
 import { registerCreateFileCommand } from './commands/createFileCommand';
+import { showConnectionDetails } from './commands/connectionDetailsCommand';
 import { AuthManager } from './network/authManager';
 import { ServerManager } from './network/serverManager';
 
@@ -42,7 +43,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Create a status bar item with alignment Right (priority 100)
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  statusBarItem.command = 'vscode-companion.status';
+  statusBarItem.command = 'vscode-companion.showConnectionDetails';
   updateStatusBar(editorMonitor.getCurrentState());
   statusBarItem.show();
 
@@ -64,15 +65,14 @@ export function activate(context: vscode.ExtensionContext): void {
     const clients = serverManager.getClientCount();
     const activeFile = state.relativePath ?? 'No active file';
     vscode.window.showInformationMessage(
-      `VS Code Companion: Port ${port ?? 'offline'} (${clients} connected) | File: ${activeFile} | Errors: ${state.diagnostics.errorCount}, Warnings: ${state.diagnostics.warningCount}`
-    );
+      `VS Code Companion: Port ${port ?? 'offline'} (${clients} connected) | File: ${activeFile} | Errors: ${state.diagnostics.errorCount}, Warnings: ${state.diagnostics.warningCount}`,
+      'Show Connection & QR Code'
+    ).then((selection) => {
+      if (selection === 'Show Connection & QR Code') {
+        showConnectionDetails(context, serverManager, authManager);
+      }
+    });
   });
-
-  // Register command to inspect current editor state (for tests and WebSocket engine)
-  const getEditorStateCommand = vscode.commands.registerCommand(
-    'vscode-companion.getEditorState',
-    () => editorMonitor.getCurrentState()
-  );
 
   // Register command to display the pairing token for LAN mode
   const showPairingTokenCommand = vscode.commands.registerCommand(
@@ -81,9 +81,26 @@ export function activate(context: vscode.ExtensionContext): void {
       const token = authManager.getPairingToken();
       const port = serverManager.getActivePort() ?? 38848;
       vscode.window.showInformationMessage(
-        `Companion LAN Pairing Token: ${token} (Listening on port ${port})`
-      );
+        `Companion LAN Pairing Token: ${token} (Listening on port ${port})`,
+        'Show Connection & QR Code'
+      ).then((selection) => {
+        if (selection === 'Show Connection & QR Code') {
+          showConnectionDetails(context, serverManager, authManager);
+        }
+      });
     }
+  );
+
+  // Register command to show connection details & QR code
+  const showConnectionDetailsCommand = vscode.commands.registerCommand(
+    'vscode-companion.showConnectionDetails',
+    () => showConnectionDetails(context, serverManager, authManager)
+  );
+
+  // Register command to inspect current editor state (for tests and WebSocket engine)
+  const getEditorStateCommand = vscode.commands.registerCommand(
+    'vscode-companion.getEditorState',
+    () => editorMonitor.getCurrentState()
   );
 
   // Register interactive safe file creation command
@@ -94,6 +111,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(statusCommand);
   context.subscriptions.push(getEditorStateCommand);
   context.subscriptions.push(showPairingTokenCommand);
+  context.subscriptions.push(showConnectionDetailsCommand);
   context.subscriptions.push(createFileCommand);
 }
 

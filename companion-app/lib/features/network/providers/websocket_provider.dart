@@ -23,6 +23,7 @@ class CompanionNetworkNotifier extends StateNotifier<CompanionNetworkState> {
   final WebSocketClientService _service;
   StreamSubscription<CompanionConnectionStatus>? _statusSubscription;
   StreamSubscription<Map<String, dynamic>>? _editorStateSubscription;
+  StreamSubscription<String?>? _errorSubscription;
 
   CompanionNetworkNotifier(this._service)
       : super(const CompanionNetworkState()) {
@@ -30,6 +31,7 @@ class CompanionNetworkNotifier extends StateNotifier<CompanionNetworkState> {
       state = state.copyWith(
         status: status,
         lastHeartbeat: _service.lastHeartbeat,
+        lastError: _service.lastError,
       );
     });
 
@@ -37,6 +39,24 @@ class CompanionNetworkNotifier extends StateNotifier<CompanionNetworkState> {
         _service.onEditorStateChanged.listen((editorState) {
       state = state.copyWith(activeEditorState: editorState);
     });
+
+    _errorSubscription = _service.onErrorChanged.listen((error) {
+      state = state.copyWith(lastError: error);
+    });
+  }
+
+  Future<void> connectWithConfig(CompanionConnectionConfig config) async {
+    state = state.copyWith(
+      config: config,
+      status: CompanionConnectionStatus.connecting,
+      lastError: null,
+    );
+    await _service.connect(config);
+    state = state.copyWith(
+      status: _service.status,
+      lastHeartbeat: _service.lastHeartbeat,
+      lastError: _service.lastError,
+    );
   }
 
   Future<void> connectLoopback({int port = 38848}) async {
@@ -97,6 +117,7 @@ class CompanionNetworkNotifier extends StateNotifier<CompanionNetworkState> {
   void dispose() {
     _statusSubscription?.cancel();
     _editorStateSubscription?.cancel();
+    _errorSubscription?.cancel();
     super.dispose();
   }
 }

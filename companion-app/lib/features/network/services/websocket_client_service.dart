@@ -18,6 +18,7 @@ class WebSocketClientService {
 
   CompanionConnectionConfig? _currentConfig;
   CompanionConnectionStatus _status = CompanionConnectionStatus.disconnected;
+  String? _lastError;
   bool _explicitlyDisconnected = false;
   int _reconnectAttempts = 0;
   DateTime? _lastHeartbeat;
@@ -27,6 +28,7 @@ class WebSocketClientService {
   final _messageController = StreamController<ProtocolEnvelope>.broadcast();
   final _editorStateController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final _errorController = StreamController<String?>.broadcast();
 
   // Pending requests awaiting response by correlation ID
   final _pendingRequests = <String, Completer<ProtocolEnvelope>>{};
@@ -38,11 +40,13 @@ class WebSocketClientService {
 
   CompanionConnectionStatus get status => _status;
   CompanionConnectionConfig? get currentConfig => _currentConfig;
+  String? get lastError => _lastError;
   DateTime? get lastHeartbeat => _lastHeartbeat;
   bool get isConnected => _status == CompanionConnectionStatus.connected;
 
   Stream<CompanionConnectionStatus> get onStatusChanged =>
       _statusController.stream;
+  Stream<String?> get onErrorChanged => _errorController.stream;
   Stream<ProtocolEnvelope> get onMessageReceived => _messageController.stream;
   Stream<Map<String, dynamic>> get onEditorStateChanged =>
       _editorStateController.stream;
@@ -75,9 +79,13 @@ class WebSocketClientService {
 
       _reconnectAttempts = 0;
       _lastHeartbeat = DateTime.now();
+      _lastError = null;
+      _errorController.add(null);
       _updateStatus(CompanionConnectionStatus.connected);
       _startHeartbeatTimer();
     } catch (e) {
+      _lastError = e.toString();
+      _errorController.add(e.toString());
       _scheduleReconnect(e.toString());
     }
   }
@@ -141,6 +149,8 @@ class WebSocketClientService {
   }
 
   void _scheduleReconnect(String reason) {
+    _lastError = reason;
+    _errorController.add(reason);
     if (_explicitlyDisconnected || _currentConfig == null) {
       _updateStatus(CompanionConnectionStatus.disconnected);
       return;
@@ -261,6 +271,8 @@ class WebSocketClientService {
   /// Explicitly disconnects and halts reconnection.
   void disconnect() {
     _explicitlyDisconnected = true;
+    _lastError = null;
+    _errorController.add(null);
     _cancelReconnectTimer();
     _cleanupChannel();
     _updateStatus(CompanionConnectionStatus.disconnected);
@@ -269,6 +281,7 @@ class WebSocketClientService {
   void dispose() {
     disconnect();
     _statusController.close();
+    _errorController.close();
     _messageController.close();
     _editorStateController.close();
   }

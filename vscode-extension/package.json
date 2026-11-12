@@ -18,6 +18,7 @@
   "activationEvents": [
     "onStartupFinished",
     "onCommand:vscode-companion.status",
+    "onCommand:vscode-companion.showConnectionDetails",
     "onCommand:vscode-companion.createFile",
     "onCommand:vscode-companion.showPairingToken",
     "onCommand:vscode-companion.getEditorState"
@@ -25,6 +26,10 @@
   "main": "./out/src/extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "vscode-companion.showConnectionDetails",
+        "title": "Companion: Show Connection Details & QR Code"
+      },
       {
         "command": "vscode-companion.status",
         "title": "Companion: Show Connection Status"
@@ -56,11 +61,13 @@
     "test": "node ./out/test/runTest.js"
   },
   "dependencies": {
+    "qrcode": "^1.5.4",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.17.0",
+    "@types/qrcode": "^1.5.6",
     "@types/vscode": "^1.90.0",
     "@types/ws": "^8.5.14",
     "@vscode/test-cli": "^0.0.10",

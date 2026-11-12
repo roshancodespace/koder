@@ -124,7 +124,7 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
         if (!adapterPresent) {
             errorMessage = "No Bluetooth adapter available on this device"
         } else if (!adapterEnabled) {
-            errorMessage = "Bluetooth adapter is disabled"
+            errorMessage = "Bluetooth is currently turned OFF. Please turn on Bluetooth."
         } else {
             try {
                 proxySupported = bluetoothAdapter?.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE) ?: false
@@ -182,6 +182,35 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
         return device.disconnect(target)
     }
 
+    fun getBondedDevices(): List<Map<String, String>> {
+        val adapter = bluetoothAdapter ?: return emptyList()
+        if (!adapter.isEnabled) {
+            return emptyList()
+        }
+        return try {
+            adapter.bondedDevices?.map { device ->
+                mapOf(
+                    "name" to (device.name ?: "Unknown Device"),
+                    "address" to device.address
+                )
+            } ?: emptyList()
+        } catch (e: SecurityException) {
+            emptyList()
+        }
+    }
+
+    fun openBluetoothSettings(): Boolean {
+        return try {
+            val intent = Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     fun sendKeyPress(modifier: Byte, keyCode: Byte): Boolean {
         val device = hidDevice ?: return false
         val target = connectedDevice ?: return false
@@ -224,6 +253,12 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
             }
             "disconnect" -> {
                 result.success(disconnect())
+            }
+            "getBondedDevices" -> {
+                result.success(getBondedDevices())
+            }
+            "openBluetoothSettings" -> {
+                result.success(openBluetoothSettings())
             }
             "sendKeyPress" -> {
                 val modifier = (call.argument<Int>("modifier") ?: 0).toByte()

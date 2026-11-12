@@ -11,7 +11,7 @@ export class AuthManager {
   private _isLanMode: boolean;
   private _requireAuthOnLoopback: boolean;
 
-  constructor(isLanMode = false, requireAuthOnLoopback = false) {
+  constructor(isLanMode = true, requireAuthOnLoopback = false) {
     this._isLanMode = isLanMode;
     this._requireAuthOnLoopback = requireAuthOnLoopback;
     this._pairingToken = this.generateNewToken();

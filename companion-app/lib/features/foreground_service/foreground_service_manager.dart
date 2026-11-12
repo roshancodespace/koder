@@ -54,6 +54,22 @@ class ForegroundServiceNotifier extends StateNotifier<ForegroundServiceState> {
     }
   }
 
+  Future<bool> isBatteryOptimizationIgnored() async {
+    try {
+      final ignored =
+          await _channel.invokeMethod<bool>('isBatteryOptimizationIgnored');
+      return ignored ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> requestIgnoreBatteryOptimizations() async {
+    try {
+      await _channel.invokeMethod('requestIgnoreBatteryOptimizations');
+    } catch (_) {}
+  }
+
   Future<bool> stopSession() async {
     try {
       final success = await _channel.invokeMethod<bool>('stopService');

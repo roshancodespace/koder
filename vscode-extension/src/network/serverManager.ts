@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import * as http from 'http';
+import * as os from 'os';
 import { WebSocketServer, WebSocket } from 'ws';
 import { AuthManager } from './authManager';
 import {
@@ -45,7 +46,7 @@ export class ServerManager implements IDisposable {
   constructor(authManager: AuthManager, config: ServerManagerConfig = {}) {
     this._authManager = authManager;
     this._config = {
-      host: config.host ?? '127.0.0.1',
+      host: config.host ?? '0.0.0.0',
       port: config.port ?? 38848,
       maxPort: config.maxPort ?? 38855,
       heartbeatIntervalMs: config.heartbeatIntervalMs ?? 30000,
@@ -54,6 +55,21 @@ export class ServerManager implements IDisposable {
 
   public getActivePort(): number | null {
     return this._activePort;
+  }
+
+  public getLocalIpAddresses(): string[] {
+    const interfaces = os.networkInterfaces();
+    const ips: string[] = [];
+    for (const name of Object.keys(interfaces)) {
+      const netList = interfaces[name];
+      if (!netList) continue;
+      for (const net of netList) {
+        if (net.family === 'IPv4' && !net.internal) {
+          ips.push(net.address);
+        }
+      }
+    }
+    return ips.length > 0 ? ips : ['127.0.0.1'];
   }
 
   public getClientCount(): number {

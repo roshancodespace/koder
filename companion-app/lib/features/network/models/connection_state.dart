@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 enum CompanionConnectionStatus {
   disconnected,
   connecting,
@@ -23,6 +25,54 @@ class CompanionConnectionConfig {
     this.mode = NetworkConnectionMode.loopbackUsb,
     this.pairingToken,
   });
+
+  static CompanionConnectionConfig? parseUriOrJson(String input) {
+    final text = input.trim();
+    if (text.isEmpty) return null;
+
+    if (text.startsWith('{') && text.endsWith('}')) {
+      try {
+        final Map<String, dynamic> data =
+            jsonDecode(text) as Map<String, dynamic>;
+        final host = data['host'] as String? ?? '127.0.0.1';
+        final port = data['port'] is int
+            ? data['port'] as int
+            : int.tryParse(data['port']?.toString() ?? '') ?? 38848;
+        final token = data['token'] as String?;
+        return CompanionConnectionConfig(
+          host: host,
+          port: port,
+          mode: host == '127.0.0.1'
+              ? NetworkConnectionMode.loopbackUsb
+              : NetworkConnectionMode.lanWifi,
+          pairingToken: token,
+        );
+      } catch (_) {}
+    }
+
+    try {
+      String uriString = text;
+      if (!uriString.startsWith('ws://') &&
+          !uriString.startsWith('http://') &&
+          !uriString.startsWith('wss://')) {
+        uriString = 'ws://$uriString';
+      }
+      final uri = Uri.parse(uriString);
+      final host = uri.host.isNotEmpty ? uri.host : '127.0.0.1';
+      final port = uri.port > 0 ? uri.port : 38848;
+      final token = uri.queryParameters['token'];
+      return CompanionConnectionConfig(
+        host: host,
+        port: port,
+        mode: host == '127.0.0.1'
+            ? NetworkConnectionMode.loopbackUsb
+            : NetworkConnectionMode.lanWifi,
+        pairingToken: token,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 
   CompanionConnectionConfig copyWith({
     String? host,

@@ -104,6 +104,27 @@ class BluetoothHidNotifier extends StateNotifier<HidState> {
     }
   }
 
+  Future<List<BluetoothDeviceInfo>> getBondedDevices() async {
+    try {
+      final rawList = await _methodChannel
+          .invokeListMethod<Map<dynamic, dynamic>>('getBondedDevices');
+      final devices = (rawList ?? [])
+          .map((item) => BluetoothDeviceInfo.fromMap(item))
+          .toList();
+      state = state.copyWith(bondedDevices: devices);
+      return devices;
+    } catch (e) {
+      state = state.copyWith(lastError: e.toString());
+      return [];
+    }
+  }
+
+  Future<void> openBluetoothSettings() async {
+    try {
+      await _methodChannel.invokeMethod<bool>('openBluetoothSettings');
+    } catch (_) {}
+  }
+
   Future<bool> connect(String macAddress) async {
     try {
       state = state.copyWith(
