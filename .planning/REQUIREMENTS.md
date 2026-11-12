@@ -31,17 +31,17 @@
 
 ### Project Management & Persistence
 
-- [ ] **PROJ-01**: Android app imports projects from local directory, local ZIP file, remote ZIP URL, and GitHub repository archive.
-- [ ] **PROJ-02**: Android app displays a nested hierarchical file explorer supporting directory expansion and file selection.
-- [ ] **PROJ-03**: File tree supports recursive parent-to-child inclusion inheritance and explicit exclusion overrides (e.g., ignoring `.git` or build directories).
-- [ ] **PROJ-04**: SQLite database persists imported projects, tree hierarchies, exclusion rules, connection profiles, session histories, and error logs.
+- [x] **PROJ-01**: Android app imports projects from local directory, local ZIP file, remote ZIP URL, and GitHub repository archive.
+- [x] **PROJ-02**: Android app displays a nested hierarchical file explorer supporting directory expansion and file selection.
+- [x] **PROJ-03**: File tree supports recursive parent-to-child inclusion inheritance and explicit exclusion overrides (e.g., ignoring `.git` or build directories).
+- [x] **PROJ-04**: SQLite database persists imported projects, tree hierarchies, exclusion rules, connection profiles, session histories, and error logs.
 
 ### Companion UI & Material 3 Experience
 
 - [x] **UI-01**: Flutter application provides a clean Material 3 design supporting dynamic light and dark themes.
-- [ ] **UI-02**: UI displays a persistent connection badge (Bluetooth HID status and WebSocket status) and real-time editor diagnostic counters.
-- [ ] **UI-03**: UI organizes features into a clean navigation layout: Connection Controller, Editor Overview, Quick Commands Pad, and Project Explorer.
-- [ ] **UI-04**: Non-blocking asynchronous state architecture ensures the UI remains responsive during Bluetooth events, network retries, and file imports.
+- [x] **UI-02**: UI displays a persistent connection badge (Bluetooth HID status and WebSocket status) and real-time editor diagnostic counters.
+- [x] **UI-03**: UI organizes features into a clean navigation layout: Connection Controller, Editor Overview, Quick Commands Pad, and Project Explorer.
+- [x] **UI-04**: Non-blocking asynchronous state architecture ensures the UI remains responsive during Bluetooth events, network retries, and file imports.
 
 ### Build, CI/CD & Release Automation
 
@@ -79,23 +79,23 @@
 | HID-04 | Phase 2 | Complete |
 | HID-05 | Phase 2 | Complete |
 | EXT-01 | Phase 1 | Complete |
-| EXT-02 | Phase 3 | Pending |
-| EXT-03 | Phase 3 | Pending |
-| EXT-04 | Phase 3 | Pending |
-| EXT-05 | Phase 3 | Pending |
-| EXT-06 | Phase 3 | Pending |
-| NET-01 | Phase 4 | Pending |
-| NET-02 | Phase 4 | Pending |
-| NET-03 | Phase 4 | Pending |
-| NET-04 | Phase 4 | Pending |
-| PROJ-01 | Phase 5 | Pending |
-| PROJ-02 | Phase 5 | Pending |
-| PROJ-03 | Phase 5 | Pending |
-| PROJ-04 | Phase 5 | Pending |
+| EXT-02 | Phase 3 | Complete |
+| EXT-03 | Phase 3 | Complete |
+| EXT-04 | Phase 3 | Complete |
+| EXT-05 | Phase 3 | Complete |
+| EXT-06 | Phase 3 | Complete |
+| NET-01 | Phase 4 | Complete |
+| NET-02 | Phase 4 | Complete |
+| NET-03 | Phase 4 | Complete |
+| NET-04 | Phase 4 | Complete |
+| PROJ-01 | Phase 5 | Complete |
+| PROJ-02 | Phase 5 | Complete |
+| PROJ-03 | Phase 5 | Complete |
+| PROJ-04 | Phase 5 | Complete |
 | UI-01 | Phase 1 | Complete |
-| UI-02 | Phase 5 | Pending |
-| UI-03 | Phase 5 | Pending |
-| UI-04 | Phase 5 | Pending |
+| UI-02 | Phase 5 | Complete |
+| UI-03 | Phase 5 | Complete |
+| UI-04 | Phase 5 | Complete |
 | CI-01 | Phase 1 | Complete |
 | CI-02 | Phase 1 | Complete |
 | REL-01 | Phase 6 | Pending |
