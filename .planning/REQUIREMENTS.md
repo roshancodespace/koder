@@ -24,10 +24,10 @@
 
 ### Networking & Versioned Protocol
 
-- [ ] **NET-01**: Extension hosts an embedded WebSocket server defaulting to loopback (`127.0.0.1:38848`), accessible over USB via `adb reverse`.
-- [ ] **NET-02**: Android client connects to WebSocket server with automatic reconnection, heartbeat/ping-pong monitoring, and connection state reporting.
-- [ ] **NET-03**: Protocol defines a versioned JSON envelope (`version`, `id`, `type`, `name`, `payload`, `timestamp`) with request-response correlation and error codes.
-- [ ] **NET-04**: Optional LAN mode allows binding to local network interface with a user-configured or dynamically generated pairing token/PIN required during connection handshake.
+- [x] **NET-01**: Extension hosts an embedded WebSocket server defaulting to loopback (`127.0.0.1:38848`), accessible over USB via `adb reverse`.
+- [x] **NET-02**: Android client connects to WebSocket server with automatic reconnection, heartbeat/ping-pong monitoring, and connection state reporting.
+- [x] **NET-03**: Protocol defines a versioned JSON envelope (`version`, `id`, `type`, `name`, `payload`, `timestamp`) with request-response correlation and error codes.
+- [x] **NET-04**: Optional LAN mode allows binding to local network interface with a user-configured or dynamically generated pairing token/PIN required during connection handshake.
 
 ### Project Management & Persistence
 

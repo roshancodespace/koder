@@ -9,7 +9,7 @@ The VS Code Companion System is developed as two completely independent subproje
 - [x] **Phase 1: Project Scaffolding, Tooling & CI Setup** - Bootstrap independent `companion-app/` and `vscode-extension/` roots with formatting, linting, and CI pipelines.
 - [x] **Phase 2: Android Bluetooth HID Platform Channel & Foreground Lifecycle** - Native Kotlin `BluetoothHidDevice` implementation, scancode mapping, capability probing, and `connectedDevice` foreground service.
 - [x] **Phase 3: VS Code Extension Core, Editor Awareness & Safe Workspace Operations** - TypeScript extension, editor event telemetry, QuickPick/InputBox workflows, path traversal defense, and collision-safe file creation.
-- [ ] **Phase 4: Bi-Directional WebSocket Protocol & Networking Engine** - Extension WebSocket server, Android client, versioned JSON-RPC envelope, loopback USB mode, and authenticated LAN pairing.
+- [x] **Phase 4: Bi-Directional WebSocket Protocol & Networking Engine** - Extension WebSocket server, Android client, versioned JSON-RPC envelope, loopback USB mode, and authenticated LAN pairing.
 - [ ] **Phase 5: Android Companion UI & Project Management Engine** - Material 3 companion interface, live status dashboard, multi-source project importer, hierarchical tree with exclusions, and SQLite persistence.
 - [ ] **Phase 6: End-to-End Integration, Release Automation & Verification** - Full workflow validation, independent GitHub Actions release workflows (APK & VSIX), SHA256 checksums, and documentation.
 
@@ -76,7 +76,7 @@ Plans:
 
 Plans:
 - [x] 04-01-PLAN.md — Implement extension WebSocket server (WebSocketServerManager), session authenticator, and event broadcast engine
-- [ ] 04-02-PLAN.md — Implement Dart WebSocket client service with auto-reconnect, message routing, and loopback/LAN connection controllers
+- [x] 04-02-PLAN.md — Implement Dart WebSocket client service with auto-reconnect, message routing, and loopback/LAN connection controllers
 
 ### Phase 5: Android Companion UI & Project Management Engine
 **Goal**: Build the full Android Material 3 companion interface, live status dashboard, multi-source project importer, hierarchical file explorer with exclusion rules, and SQLite persistence.

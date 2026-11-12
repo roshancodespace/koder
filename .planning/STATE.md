@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
-current_phase: 4
-current_phase_name: Bi-Directional WebSocket Protocol & Networking Engine
+current_phase: 5
+current_phase_name: Android Companion UI & Project Management Engine
 status: ready_to_plan
-stopped_at: Phase 3 execution complete. Ready to plan Phase 4.
-last_updated: "2026-11-12T12:00:00.000Z"
+stopped_at: Phase 4 execution complete. Ready to plan Phase 5.
+last_updated: "2026-11-12T12:35:00.000Z"
 last_activity: 2026-11-12
-last_activity_desc: Completed Phase 3 execution (VS Code extension core, debounced editor telemetry monitor, path traversal validator, collision-safe file manager, and interactive QuickPick/InputBox file creation command).
-state_head: 9088600d0d15e89feb3299f446933a47a803a06a
+last_activity_desc: Completed Phase 4 execution (embedded WebSocket server in VS Code extension, versioned JSON-RPC protocol envelope, cryptographic LAN pairing, resilient Dart WebSocket client with exponential backoff reconnect, 15s heartbeat, and Riverpod state management).
+state_head: 741c5ff0a3221bfcaeb234d3101b0f59c8d5047b
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 13
-  completed_plans: 6
-  percent: 46
+  completed_plans: 8
+  percent: 62
 ---
 
 # Project State
@@ -23,23 +23,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-11-12)
 
 **Core value:** Enable low-latency, context-aware command execution and workspace manipulation directly from an Android companion device via Bluetooth HID shortcuts and structured WebSocket telemetry, strictly bounded by safe workspace APIs and without autonomous code generation.
-**Current focus:** Phase 4 — Bi-Directional WebSocket Protocol & Networking Engine
+**Current focus:** Phase 5 — Android Companion UI & Project Management Engine
 
 ## Current Position
 
-Phase: 4 (Bi-Directional WebSocket Protocol & Networking Engine) — READY TO PLAN
-Plan: 0 of 2 in current phase
-Status: Phase 3 complete, ready to plan Phase 4
-Last activity: 2026-11-12 — Completed Phase 3 VS Code extension editor awareness, safety engine, and command workflows.
+Phase: 5 (Android Companion UI & Project Management Engine) — READY TO PLAN
+Plan: 0 of 3 in current phase
+Status: Phase 4 complete, ready to plan Phase 5
+Last activity: 2026-11-12 — Completed Phase 4 bi-directional WebSocket protocol and networking engine.
 
-Progress: [█████░░░░░] 46%
+Progress: [██████░░░░] 62%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 11 min
-- Total execution time: 1.1 hours
+- Total plans completed: 8
+- Average duration: 12 min
+- Total execution time: 1.6 hours
 
 **By Phase:**
 
@@ -48,7 +48,7 @@ Progress: [█████░░░░░] 46%
 | 1. Scaffolding & CI | 2/2 | 17 min | 8.5 min |
 | 2. Android Bluetooth HID | 2/2 | 22 min | 11 min |
 | 3. VS Code Extension & Safety | 2/2 | 27 min | 13.5 min |
-| 4. WebSocket Protocol Engine | 0/2 | - | - |
+| 4. WebSocket Protocol Engine | 2/2 | 31 min | 15.5 min |
 | 5. Android UI & Project Mgr | 0/3 | - | - |
 | 6. E2E Integration & Release | 0/2 | - | - |
 
