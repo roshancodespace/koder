@@ -28,6 +28,10 @@
       {
         "command": "vscode-companion.createFile",
         "title": "Companion: Create File Safely"
+      },
+      {
+        "command": "vscode-companion.showPairingToken",
+        "title": "Companion: Show LAN Pairing Token"
       }
     ],
     "keybindings": [

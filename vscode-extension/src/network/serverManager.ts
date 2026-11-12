@@ -1,5 +1,5 @@
+import { EventEmitter } from 'events';
 import * as http from 'http';
-import * as vscode from 'vscode';
 import { WebSocketServer, WebSocket } from 'ws';
 import { AuthManager } from './authManager';
 import {
@@ -9,6 +9,10 @@ import {
   createErrorMessage,
   isProtocolEnvelope,
 } from './protocol';
+
+export interface IDisposable {
+  dispose(): void;
+}
 
 interface AuthenticatedSocket extends WebSocket {
   isAlive: boolean;
@@ -22,7 +26,7 @@ export interface ServerManagerConfig {
   heartbeatIntervalMs?: number;
 }
 
-export class ServerManager implements vscode.Disposable {
+export class ServerManager implements IDisposable {
   private readonly _authManager: AuthManager;
   private readonly _config: Required<ServerManagerConfig>;
   private _server: http.Server | null = null;
@@ -30,14 +34,7 @@ export class ServerManager implements vscode.Disposable {
   private _activePort: number | null = null;
   private readonly _clients = new Set<AuthenticatedSocket>();
   private _heartbeatTimer: NodeJS.Timeout | null = null;
-
-  private readonly _onDidChangeClientCount = new vscode.EventEmitter<number>();
-  public readonly onDidChangeClientCount: vscode.Event<number> =
-    this._onDidChangeClientCount.event;
-
-  private readonly _onDidReceiveMessage = new vscode.EventEmitter<ProtocolEnvelope>();
-  public readonly onDidReceiveMessage: vscode.Event<ProtocolEnvelope> =
-    this._onDidReceiveMessage.event;
+  private readonly _emitter = new EventEmitter();
 
   // Custom request handlers registered by other components (e.g. editor, workspace)
   private readonly _requestHandlers = new Map<
@@ -67,14 +64,34 @@ export class ServerManager implements vscode.Disposable {
     return this._authManager.getPairingToken();
   }
 
+  public onDidChangeClientCount(listener: (count: number) => void): IDisposable {
+    this._emitter.on('clientCount', listener);
+    return {
+      dispose: () => {
+        this._emitter.off('clientCount', listener);
+      },
+    };
+  }
+
+  public onDidReceiveMessage(listener: (msg: ProtocolEnvelope) => void): IDisposable {
+    this._emitter.on('message', listener);
+    return {
+      dispose: () => {
+        this._emitter.off('message', listener);
+      },
+    };
+  }
+
   public registerRequestHandler(
     name: string,
     handler: (payload: Record<string, unknown>) => Promise<Record<string, unknown>>
-  ): vscode.Disposable {
+  ): IDisposable {
     this._requestHandlers.set(name, handler);
-    return new vscode.Disposable(() => {
-      this._requestHandlers.delete(name);
-    });
+    return {
+      dispose: () => {
+        this._requestHandlers.delete(name);
+      },
+    };
   }
 
   /**
@@ -144,7 +161,7 @@ export class ServerManager implements vscode.Disposable {
         client.isAlive = true;
         client.isAuthenticated = true;
         this._clients.add(client);
-        this._onDidChangeClientCount.fire(this._clients.size);
+        this._emitter.emit('clientCount', this._clients.size);
 
         client.on('pong', () => {
           client.isAlive = true;
@@ -156,12 +173,12 @@ export class ServerManager implements vscode.Disposable {
 
         client.on('close', () => {
           this._clients.delete(client);
-          this._onDidChangeClientCount.fire(this._clients.size);
+          this._emitter.emit('clientCount', this._clients.size);
         });
 
         client.on('error', () => {
           this._clients.delete(client);
-          this._onDidChangeClientCount.fire(this._clients.size);
+          this._emitter.emit('clientCount', this._clients.size);
         });
       });
 
@@ -200,7 +217,7 @@ export class ServerManager implements vscode.Disposable {
     }
 
     const envelope = parsed;
-    this._onDidReceiveMessage.fire(envelope);
+    this._emitter.emit('message', envelope);
 
     if (envelope.type === 'request') {
       // Built-in system ping handler
@@ -267,7 +284,7 @@ export class ServerManager implements vscode.Disposable {
         if (!client.isAlive) {
           client.terminate();
           this._clients.delete(client);
-          this._onDidChangeClientCount.fire(this._clients.size);
+          this._emitter.emit('clientCount', this._clients.size);
           continue;
         }
         client.isAlive = false;
@@ -290,7 +307,7 @@ export class ServerManager implements vscode.Disposable {
       }
     }
     this._clients.clear();
-    this._onDidChangeClientCount.fire(0);
+    this._emitter.emit('clientCount', 0);
 
     if (this._wss) {
       await new Promise<void>((resolve) => {
@@ -311,7 +328,6 @@ export class ServerManager implements vscode.Disposable {
 
   public dispose(): void {
     void this.stop();
-    this._onDidChangeClientCount.dispose();
-    this._onDidReceiveMessage.dispose();
+    this._emitter.removeAllListeners();
   }
 }
