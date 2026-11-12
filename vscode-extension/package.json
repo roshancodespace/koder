@@ -1,0 +1,48 @@
+{
+  "name": "vscode-companion",
+  "displayName": "VS Code Companion",
+  "description": "Companion system for Android external keyboard and workspace bridge",
+  "version": "0.1.0",
+  "publisher": "companion",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vscode-companion.status",
+        "title": "Companion: Show Connection Status"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "prepublish": "pnpm run compile",
+    "lint": "eslint src",
+    "test": "node ./out/test/runTest.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.17.0",
+    "@types/vscode": "^1.90.0",
+    "@types/ws": "^8.5.14",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "^3.2.1",
+    "eslint": "^9.20.0",
+    "mocha": "^10.8.2",
+    "typescript": "~5.8.0",
+    "typescript-eslint": "^8.24.0"
+  }
+}
