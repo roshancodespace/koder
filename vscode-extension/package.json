@@ -24,6 +24,18 @@
       {
         "command": "vscode-companion.status",
         "title": "Companion: Show Connection Status"
+      },
+      {
+        "command": "vscode-companion.createFile",
+        "title": "Companion: Create File Safely"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "vscode-companion.createFile",
+        "key": "ctrl+alt+n",
+        "mac": "cmd+alt+n",
+        "when": "editorTextFocus || !editorTextFocus"
       }
     ]
   },

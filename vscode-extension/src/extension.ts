@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { EditorMonitor, EditorState } from './editor/editorMonitor';
 import { validateWorkspacePath } from './workspace/pathValidator';
 import { createWorkspaceFileSafely } from './workspace/safeFileManager';
+import { registerCreateFileCommand } from './commands/createFileCommand';
 
 let statusBarItem: vscode.StatusBarItem;
 let editorMonitor: EditorMonitor;
@@ -37,10 +38,14 @@ export function activate(context: vscode.ExtensionContext): void {
     () => editorMonitor.getCurrentState()
   );
 
+  // Register interactive safe file creation command
+  const createFileCommand = registerCreateFileCommand(context);
+
   // Register all disposables in context.subscriptions
   context.subscriptions.push(statusBarItem);
   context.subscriptions.push(statusCommand);
   context.subscriptions.push(getEditorStateCommand);
+  context.subscriptions.push(createFileCommand);
 }
 
 function updateStatusBar(state: EditorState): void {
@@ -56,4 +61,4 @@ export function deactivate(): void {
   }
 }
 
-export { EditorMonitor, validateWorkspacePath, createWorkspaceFileSafely };
+export { EditorMonitor, validateWorkspacePath, createWorkspaceFileSafely, registerCreateFileCommand };
