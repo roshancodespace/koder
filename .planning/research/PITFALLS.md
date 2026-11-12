@@ -145,3 +145,4 @@ Phase 1 (Workspace Bootstrap & CI Setup)
 ---
 *Pitfalls research for: VS Code Companion System*
 *Researched: 2026-11-12*
+

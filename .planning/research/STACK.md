@@ -122,3 +122,4 @@ pnpm add -D typescript @types/node @types/vscode @types/ws @vscode/test-cli @vsc
 ---
 *Stack research for: VS Code Companion System*
 *Researched: 2026-11-12*
+

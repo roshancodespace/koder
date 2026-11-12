@@ -109,3 +109,4 @@ Features that seem good but create problems.
 ---
 *Feature research for: VS Code Companion System*
 *Researched: 2026-11-12*
+
