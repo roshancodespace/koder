@@ -1,0 +1,69 @@
+name: VS Code Extension Release
+
+on:
+  push:
+    tags:
+      - 'extension-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package-and-release:
+    name: Package, Verify & Publish Production VSIX
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: vscode-extension
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Set up Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'pnpm'
+          cache-dependency-path: 'vscode-extension/pnpm-lock.yaml'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Run linter
+        run: pnpm run lint
+
+      - name: Compile TypeScript
+        run: pnpm run compile
+
+      - name: Run headless tests
+        run: xvfb-run -a pnpm test
+
+      - name: Package production VSIX
+        run: npx @vscode/vsce package --no-dependencies --no-git-tag-version
+
+      - name: Calculate SHA256 checksums
+        id: checksums
+        run: |
+          sha256sum *.vsix > SHA256SUMS.txt
+          echo "Generated SHA256 checksums:"
+          cat SHA256SUMS.txt
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            vscode-extension/*.vsix
+            vscode-extension/SHA256SUMS.txt
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

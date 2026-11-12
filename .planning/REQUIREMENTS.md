@@ -47,8 +47,8 @@
 
 - [x] **CI-01**: `companion-app` includes `.github/workflows/ci.yml` running Flutter formatting, static analysis (`flutter analyze`), unit tests (`flutter test`), and APK debug compilation.
 - [x] **CI-02**: `vscode-extension` includes `.github/workflows/ci.yml` running TypeScript compilation (`tsc`), ESLint, unit/extension tests, and VSIX packaging verification.
-- [ ] **REL-01**: `companion-app` includes `.github/workflows/release.yml` triggered by version tags (`companion-v*`) or manual dispatch to build release APKs with SHA256 checksums and GitHub Release publishing.
-- [ ] **REL-02**: `vscode-extension` includes `.github/workflows/release.yml` triggered by version tags (`extension-v*`) or manual dispatch to package production VSIX artifacts with SHA256 checksums and GitHub Release publishing.
+- [x] **REL-01**: `companion-app` includes `.github/workflows/release.yml` triggered by version tags (`companion-v*`) or manual dispatch to build release APKs with SHA256 checksums and GitHub Release publishing.
+- [x] **REL-02**: `vscode-extension` includes `.github/workflows/release.yml` triggered by version tags (`extension-v*`) or manual dispatch to package production VSIX artifacts with SHA256 checksums and GitHub Release publishing.
 
 ## v2 Requirements
 
@@ -98,8 +98,8 @@
 | UI-04 | Phase 5 | Complete |
 | CI-01 | Phase 1 | Complete |
 | CI-02 | Phase 1 | Complete |
-| REL-01 | Phase 6 | Pending |
-| REL-02 | Phase 6 | Pending |
+| REL-01 | Phase 6 | Complete |
+| REL-02 | Phase 6 | Complete |
 
 **Coverage:**
 - v1 requirements: 26 total
