@@ -16,11 +16,11 @@
 ### VS Code Extension & Safe Workspace Operations
 
 - [x] **EXT-01**: Extension initializes in TypeScript with minimal dependencies, utilizing the official VS Code Extension API.
-- [ ] **EXT-02**: Extension monitors and emits real-time editor state changes: active document URI, language ID, cursor position, selection range, and diagnostic error/warning counts.
-- [ ] **EXT-03**: Extension provides a floating command workflow using native `vscode.window.showInputBox` and `vscode.window.createQuickPick` triggered by keyboard shortcut or companion action.
-- [ ] **EXT-04**: Path validator normalizes inputs using `vscode.Uri.joinPath` and rejects any path attempting traversal outside active `workspace.workspaceFolders`.
-- [ ] **EXT-05**: Extension checks file existence with `vscode.workspace.fs.stat` and strictly prevents implicit overwrites, returning structured errors on collision.
-- [ ] **EXT-06**: Extension recursively creates missing parent directories via `vscode.workspace.fs.createDirectory` and creates files via `vscode.workspace.fs.writeFile`, opening the new file in the active editor.
+- [x] **EXT-02**: Extension monitors and emits real-time editor state changes: active document URI, language ID, cursor position, selection range, and diagnostic error/warning counts.
+- [x] **EXT-03**: Extension provides a floating command workflow using native `vscode.window.showInputBox` and `vscode.window.createQuickPick` triggered by keyboard shortcut or companion action.
+- [x] **EXT-04**: Path validator normalizes inputs using `vscode.Uri.joinPath` and rejects any path attempting traversal outside active `workspace.workspaceFolders`.
+- [x] **EXT-05**: Extension checks file existence with `vscode.workspace.fs.stat` and strictly prevents implicit overwrites, returning structured errors on collision.
+- [x] **EXT-06**: Extension recursively creates missing parent directories via `vscode.workspace.fs.createDirectory` and creates files via `vscode.workspace.fs.writeFile`, opening the new file in the active editor.
 
 ### Networking & Versioned Protocol
 

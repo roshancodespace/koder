@@ -8,7 +8,7 @@ The VS Code Companion System is developed as two completely independent subproje
 
 - [x] **Phase 1: Project Scaffolding, Tooling & CI Setup** - Bootstrap independent `companion-app/` and `vscode-extension/` roots with formatting, linting, and CI pipelines.
 - [x] **Phase 2: Android Bluetooth HID Platform Channel & Foreground Lifecycle** - Native Kotlin `BluetoothHidDevice` implementation, scancode mapping, capability probing, and `connectedDevice` foreground service.
-- [ ] **Phase 3: VS Code Extension Core, Editor Awareness & Safe Workspace Operations** - TypeScript extension, editor event telemetry, QuickPick/InputBox workflows, path traversal defense, and collision-safe file creation.
+- [x] **Phase 3: VS Code Extension Core, Editor Awareness & Safe Workspace Operations** - TypeScript extension, editor event telemetry, QuickPick/InputBox workflows, path traversal defense, and collision-safe file creation.
 - [ ] **Phase 4: Bi-Directional WebSocket Protocol & Networking Engine** - Extension WebSocket server, Android client, versioned JSON-RPC envelope, loopback USB mode, and authenticated LAN pairing.
 - [ ] **Phase 5: Android Companion UI & Project Management Engine** - Material 3 companion interface, live status dashboard, multi-source project importer, hierarchical tree with exclusions, and SQLite persistence.
 - [ ] **Phase 6: End-to-End Integration, Release Automation & Verification** - Full workflow validation, independent GitHub Actions release workflows (APK & VSIX), SHA256 checksums, and documentation.
@@ -61,7 +61,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — Implement EditorMonitor and SafeWorkspaceManager (path traversal guard, collision detection, recursive directory/file creation)
-- [ ] 03-02-PLAN.md — Implement floating QuickPick/InputBox command workflow and bind extension commands and shortcut contributions
+- [x] 03-02-PLAN.md — Implement floating QuickPick/InputBox command workflow and bind extension commands and shortcut contributions
 
 ### Phase 4: Bi-Directional WebSocket Protocol & Networking Engine
 **Goal**: Implement the versioned bidirectional JSON-RPC messaging engine connecting the VS Code extension server and the Android companion client over loopback and authenticated LAN.
