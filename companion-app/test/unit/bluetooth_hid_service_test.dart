@@ -78,6 +78,13 @@ void main() {
             return true;
           case 'makeDiscoverable':
             return true;
+          case 'getSpoofProfile':
+            return {
+              'presetId': 'logitech_mx_keys',
+              'deviceName': 'Logitech MX Keys',
+              'provider': 'Logitech',
+              'description': 'Logitech MX Keys Advanced Wireless Keyboard',
+            };
           default:
             return null;
         }
@@ -136,8 +143,17 @@ void main() {
       expect(methodCalls.map((c) => c.method), contains('setDeviceSpoof'));
       final spoofCall =
           methodCalls.firstWhere((c) => c.method == 'setDeviceSpoof');
+      expect(spoofCall.arguments['presetId'], equals(applePreset.id));
       expect(spoofCall.arguments['deviceName'], equals(applePreset.deviceName));
       expect(spoofCall.arguments['provider'], equals(applePreset.provider));
+    });
+
+    test('clearError resets lastError in state to null', () {
+      notifier.state = notifier.state.copyWith(lastError: 'Simulated connection failure');
+      expect(notifier.state.lastError, equals('Simulated connection failure'));
+
+      notifier.clearError();
+      expect(notifier.state.lastError, isNull);
     });
 
     test('makeDiscoverable calls channel and updates state', () async {

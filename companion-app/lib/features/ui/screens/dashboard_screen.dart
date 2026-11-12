@@ -502,60 +502,118 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 const SizedBox(height: 16),
               ],
 
-              // 4b. Bluetooth Connection Error / Instruction Alert
+              // 4b. Bluetooth Connection Error / Instruction Alert (M3 Expressive)
               if (hidState.lastError != null) ...[
-                Card(
-                  color: theme.colorScheme.errorContainer,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.bluetooth_disabled,
-                                color: theme.colorScheme.error, size: 24),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Bluetooth Connection Notice',
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  color: theme.colorScheme.onErrorContainer,
-                                  fontWeight: FontWeight.bold,
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: Card(
+                    elevation: 0,
+                    color: theme.colorScheme.surfaceContainerHigh,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(
+                        color: theme.colorScheme.error.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.error
+                                      .withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  Icons.bluetooth_searching_rounded,
+                                  color: theme.colorScheme.error,
+                                  size: 20,
                                 ),
                               ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Bluetooth Pairing Notice',
+                                      style: theme.textTheme.titleSmall
+                                          ?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.1,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Host connection required',
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                        color: theme
+                                            .colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close_rounded, size: 20),
+                                tooltip: 'Dismiss',
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () => ref
+                                    .read(
+                                        bluetoothHidServiceProvider.notifier)
+                                    .clearError(),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _formatHidErrorMessage(
+                              hidState.lastError!,
+                              hidState.activeSpoof.deviceName,
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.close, size: 18),
-                              onPressed: () => ref
-                                  .read(bluetoothHidServiceProvider.notifier)
-                                  .clearError(),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              height: 1.35,
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          hidState.lastError!,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onErrorContainer,
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        FilledButton.tonalIcon(
-                          icon: const Icon(Icons.sensors),
-                          label: Text(
-                            'Expose as ${hidState.activeSpoof.deviceName} (Pairing Mode)',
+                          const SizedBox(height: 14),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              FilledButton.tonalIcon(
+                                icon: const Icon(Icons.sensors_rounded,
+                                    size: 18),
+                                label: Text(
+                                  'Expose as ${hidState.activeSpoof.deviceName}',
+                                ),
+                                onPressed: () => _exposeDevice(
+                                  context,
+                                  ref,
+                                  hidState.activeSpoof,
+                                ),
+                              ),
+                              OutlinedButton.icon(
+                                icon: const Icon(
+                                    Icons.settings_bluetooth_rounded,
+                                    size: 18),
+                                label: const Text('Open Settings'),
+                                onPressed: () => ref
+                                    .read(
+                                        bluetoothHidServiceProvider.notifier)
+                                    .openBluetoothSettings(),
+                              ),
+                            ],
                           ),
-                          onPressed: () => _exposeDevice(
-                            context,
-                            ref,
-                            hidState.activeSpoof,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1070,6 +1128,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
       ),
     );
+  }
+
+  String _formatHidErrorMessage(String error, String deviceName) {
+    if (error.contains('rejected') || error.contains('did not accept')) {
+      return 'Keyboards are host-initiated. If connecting from the phone was rejected, connect to "$deviceName" from your computer\'s Bluetooth settings, or tap Expose below.';
+    }
+    return error;
   }
 
   void _exposeDevice(

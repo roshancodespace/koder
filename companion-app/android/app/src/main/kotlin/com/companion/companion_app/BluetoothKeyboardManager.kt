@@ -18,6 +18,16 @@ import java.util.concurrent.Executors
 class BluetoothKeyboardManager(private val context: Context) : MethodChannel.MethodCallHandler,
     EventChannel.StreamHandler {
 
+    companion object {
+        private const val PREFS_NAME = "koder_bluetooth_hid_prefs"
+        private const val KEY_SPOOF_NAME = "spoof_device_name"
+        private const val KEY_SPOOF_PROVIDER = "spoof_provider"
+        private const val KEY_SPOOF_DESC = "spoof_description"
+        private const val KEY_SPOOF_ID = "spoof_preset_id"
+    }
+
+    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
     private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
     private var hidDevice: BluetoothHidDevice? = null
     private var connectedDevice: BluetoothDevice? = null
@@ -26,10 +36,16 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
     private val mainHandler = Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
 
-    // Spoofed Keyboard Identity (Defaults to standard Logitech MX Keys)
-    private var spoofDeviceName: String = "Logitech MX Keys"
-    private var spoofProvider: String = "Logitech"
-    private var spoofDescription: String = "Logitech MX Keys Advanced Wireless Keyboard"
+    // Spoofed Keyboard Identity (Loaded from SharedPreferences, defaults to standard Logitech MX Keys)
+    private var spoofDeviceName: String =
+        prefs.getString(KEY_SPOOF_NAME, "Logitech MX Keys") ?: "Logitech MX Keys"
+    private var spoofProvider: String =
+        prefs.getString(KEY_SPOOF_PROVIDER, "Logitech") ?: "Logitech"
+    private var spoofDescription: String =
+        prefs.getString(KEY_SPOOF_DESC, "Logitech MX Keys Advanced Wireless Keyboard")
+            ?: "Logitech MX Keys Advanced Wireless Keyboard"
+    private var spoofPresetId: String =
+        prefs.getString(KEY_SPOOF_ID, "logitech_mx_keys") ?: "logitech_mx_keys"
 
     // 8-byte Standard USB Boot Keyboard Report Descriptor with Output (LEDs) Report
     private val descriptor = byteArrayOf(
@@ -235,10 +251,28 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
         return device.unregisterApp()
     }
 
-    fun setDeviceSpoof(deviceName: String, provider: String, description: String): Boolean {
+    fun setDeviceSpoof(
+        deviceName: String,
+        provider: String,
+        description: String,
+        presetId: String? = null
+    ): Boolean {
         spoofDeviceName = deviceName
         spoofProvider = provider
         spoofDescription = description
+        if (presetId != null) {
+            spoofPresetId = presetId
+        }
+
+        prefs.edit().apply {
+            putString(KEY_SPOOF_NAME, deviceName)
+            putString(KEY_SPOOF_PROVIDER, provider)
+            putString(KEY_SPOOF_DESC, description)
+            if (presetId != null) {
+                putString(KEY_SPOOF_ID, presetId)
+            }
+            apply()
+        }
 
         try {
             bluetoothAdapter?.name = deviceName
@@ -408,7 +442,8 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
                 val name = call.argument<String>("deviceName") ?: "Logitech MX Keys"
                 val provider = call.argument<String>("provider") ?: "Logitech"
                 val desc = call.argument<String>("description") ?: "Wireless Keyboard"
-                result.success(setDeviceSpoof(name, provider, desc))
+                val presetId = call.argument<String>("presetId")
+                result.success(setDeviceSpoof(name, provider, desc, presetId))
             }
 
             "makeDiscoverable" -> {
@@ -421,7 +456,8 @@ class BluetoothKeyboardManager(private val context: Context) : MethodChannel.Met
                     mapOf(
                         "deviceName" to spoofDeviceName,
                         "provider" to spoofProvider,
-                        "description" to spoofDescription
+                        "description" to spoofDescription,
+                        "presetId" to spoofPresetId
                     )
                 )
             }

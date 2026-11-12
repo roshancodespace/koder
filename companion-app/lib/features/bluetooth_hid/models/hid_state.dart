@@ -130,6 +130,8 @@ class KeyboardSpoofPreset {
 }
 
 class HidState {
+  static const Object _sentinel = Object();
+
   final HidConnectionStatus status;
   final HidCapability capability;
   final String? connectedDeviceAddress;
@@ -155,7 +157,8 @@ class HidState {
     List<BluetoothDeviceInfo>? bondedDevices,
     KeyboardSpoofPreset? activeSpoof,
     bool? isDiscoverable,
-    String? lastError,
+    Object? lastError = _sentinel,
+    bool clearLastError = false,
   }) {
     return HidState(
       status: status ?? this.status,
@@ -165,7 +168,11 @@ class HidState {
       bondedDevices: bondedDevices ?? this.bondedDevices,
       activeSpoof: activeSpoof ?? this.activeSpoof,
       isDiscoverable: isDiscoverable ?? this.isDiscoverable,
-      lastError: lastError ?? this.lastError,
+      lastError: clearLastError
+          ? null
+          : (identical(lastError, _sentinel)
+              ? this.lastError
+              : lastError as String?),
     );
   }
 }

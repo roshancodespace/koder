@@ -17,6 +17,48 @@ class BluetoothHidNotifier extends StateNotifier<HidState> {
             const EventChannel('com.companion.koder/hid_events'),
         super(const HidState()) {
     _initEventListener();
+    _loadPersistedSpoof();
+  }
+
+  Future<void> _loadPersistedSpoof() async {
+    try {
+      final profile = await _methodChannel
+          .invokeMethod<Map<dynamic, dynamic>>('getSpoofProfile');
+      if (profile != null) {
+        final presetId = profile['presetId'] as String?;
+        final deviceName = profile['deviceName'] as String?;
+        if (presetId != null && presetId.isNotEmpty) {
+          final matched = KeyboardSpoofPreset.presets.firstWhere(
+            (p) => p.id == presetId,
+            orElse: () => KeyboardSpoofPreset.presets.firstWhere(
+              (p) => p.deviceName == deviceName,
+              orElse: () => KeyboardSpoofPreset(
+                id: presetId,
+                displayName: deviceName ?? 'Custom Keyboard',
+                deviceName: deviceName ?? 'Custom Keyboard',
+                provider: (profile['provider'] as String?) ?? 'Generic',
+                description:
+                    (profile['description'] as String?) ?? 'Wireless Keyboard',
+              ),
+            ),
+          );
+          state = state.copyWith(activeSpoof: matched);
+        } else if (deviceName != null && deviceName.isNotEmpty) {
+          final matched = KeyboardSpoofPreset.presets.firstWhere(
+            (p) => p.deviceName == deviceName,
+            orElse: () => KeyboardSpoofPreset(
+              id: 'custom_${deviceName.toLowerCase().replaceAll(' ', '_')}',
+              displayName: deviceName,
+              deviceName: deviceName,
+              provider: (profile['provider'] as String?) ?? 'Generic',
+              description:
+                  (profile['description'] as String?) ?? 'Wireless Keyboard',
+            ),
+          );
+          state = state.copyWith(activeSpoof: matched);
+        }
+      }
+    } catch (_) {}
   }
 
   void _initEventListener() {
@@ -143,6 +185,7 @@ class BluetoothHidNotifier extends StateNotifier<HidState> {
     try {
       final success =
           await _methodChannel.invokeMethod<bool>('setDeviceSpoof', {
+        'presetId': preset.id,
         'deviceName': preset.deviceName,
         'provider': preset.provider,
         'description': preset.description,
@@ -172,7 +215,7 @@ class BluetoothHidNotifier extends StateNotifier<HidState> {
   }
 
   void clearError() {
-    state = state.copyWith(lastError: null);
+    state = state.copyWith(clearLastError: true);
   }
 
   Future<bool> connect(String macAddress) async {
