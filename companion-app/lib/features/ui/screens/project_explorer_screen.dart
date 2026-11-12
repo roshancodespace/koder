@@ -5,8 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: implementation_imports
 import 'package:m3e_core/src/card/m3e_card.dart';
+// ignore: implementation_imports
+import 'package:m3e_core/src/progress_indicator/m3e_linear_progress_indicator.dart';
 import '../../automation/models/humanization_config.dart';
 import '../../automation/services/humanized_typer_service.dart';
+import '../../automation/services/language_indentation_helper.dart';
 import '../../bluetooth_hid/bluetooth_hid_service.dart';
 import '../../bluetooth_hid/models/hid_state.dart';
 import '../../network/models/connection_state.dart';
@@ -496,171 +499,376 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
         return StatefulBuilder(
           builder: (modalCtx, setModalState) {
             final theme = Theme.of(context);
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.tune, color: theme.colorScheme.primary),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Humanized Typer Settings',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
+            return DraggableScrollableSheet(
+              initialChildSize: 0.85,
+              minChildSize: 0.5,
+              maxChildSize: 0.95,
+              expand: false,
+              builder: (scrollCtx, scrollController) {
+                return SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.outlineVariant,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
+                      ),
+                      Row(
+                        children: [
+                          Icon(Icons.tune_rounded,
+                              color: theme.colorScheme.primary),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Automation & Humanization Settings',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Configure natural typing speed, session timer, rest breaks, and syntax alignment:',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Section 1: Session Duration Timer
+                      Text(
+                        'Coding Session Duration',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: const Text('Unlimited'),
+                            selected:
+                                _humanizationConfig.sessionDurationMinutes == 0,
+                            onSelected: (sel) {
+                              if (sel) {
+                                setModalState(() {
+                                  _humanizationConfig =
+                                      _humanizationConfig.copyWith(
+                                    sessionDurationMinutes: 0,
+                                  );
+                                });
+                                setState(() {});
+                              }
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('25 Mins'),
+                            selected:
+                                _humanizationConfig.sessionDurationMinutes ==
+                                    25,
+                            onSelected: (sel) {
+                              if (sel) {
+                                setModalState(() {
+                                  _humanizationConfig =
+                                      _humanizationConfig.copyWith(
+                                    sessionDurationMinutes: 25,
+                                  );
+                                });
+                                setState(() {});
+                              }
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('45 Mins'),
+                            selected:
+                                _humanizationConfig.sessionDurationMinutes ==
+                                    45,
+                            onSelected: (sel) {
+                              if (sel) {
+                                setModalState(() {
+                                  _humanizationConfig =
+                                      _humanizationConfig.copyWith(
+                                    sessionDurationMinutes: 45,
+                                  );
+                                });
+                                setState(() {});
+                              }
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('60 Mins'),
+                            selected:
+                                _humanizationConfig.sessionDurationMinutes ==
+                                    60,
+                            onSelected: (sel) {
+                              if (sel) {
+                                setModalState(() {
+                                  _humanizationConfig =
+                                      _humanizationConfig.copyWith(
+                                    sessionDurationMinutes: 60,
+                                  );
+                                });
+                                setState(() {});
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Section 2: Deep Work Breaks
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Periodic Deep Work Breaks'),
+                        subtitle: const Text(
+                          'Pauses automation periodically to rest hands and eyes like a human coder',
+                        ),
+                        value: _humanizationConfig.enableDeepWorkBreaks,
+                        onChanged: (enabled) {
+                          setModalState(() {
+                            _humanizationConfig = _humanizationConfig.copyWith(
+                              enableDeepWorkBreaks: enabled,
+                            );
+                          });
+                          setState(() {});
+                        },
+                      ),
+                      if (_humanizationConfig.enableDeepWorkBreaks) ...[
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            ChoiceChip(
+                              label: const Text('Every 25m (5m break)'),
+                              selected: _humanizationConfig
+                                          .breakIntervalMinutes ==
+                                      25 &&
+                                  _humanizationConfig.breakDurationMinutes == 5,
+                              onSelected: (sel) {
+                                if (sel) {
+                                  setModalState(() {
+                                    _humanizationConfig =
+                                        _humanizationConfig.copyWith(
+                                      breakIntervalMinutes: 25,
+                                      breakDurationMinutes: 5,
+                                    );
+                                  });
+                                  setState(() {});
+                                }
+                              },
+                            ),
+                            ChoiceChip(
+                              label: const Text('Every 45m (10m break)'),
+                              selected: _humanizationConfig
+                                          .breakIntervalMinutes ==
+                                      45 &&
+                                  _humanizationConfig.breakDurationMinutes ==
+                                      10,
+                              onSelected: (sel) {
+                                if (sel) {
+                                  setModalState(() {
+                                    _humanizationConfig =
+                                        _humanizationConfig.copyWith(
+                                      breakIntervalMinutes: 45,
+                                      breakDurationMinutes: 10,
+                                    );
+                                  });
+                                  setState(() {});
+                                }
+                              },
+                            ),
+                            ChoiceChip(
+                              label: const Text('Every 15m (3m break)'),
+                              selected: _humanizationConfig
+                                          .breakIntervalMinutes ==
+                                      15 &&
+                                  _humanizationConfig.breakDurationMinutes == 3,
+                              onSelected: (sel) {
+                                if (sel) {
+                                  setModalState(() {
+                                    _humanizationConfig =
+                                        _humanizationConfig.copyWith(
+                                      breakIntervalMinutes: 15,
+                                      breakDurationMinutes: 3,
+                                    );
+                                  });
+                                  setState(() {});
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
                       ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Configure typing speed variations and realistic typo corrections:',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
 
-                    // WPM Speed Range
-                    Text(
-                      'Typing Speed: ${_humanizationConfig.minWpm} - ${_humanizationConfig.maxWpm} WPM',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    RangeSlider(
-                      values: RangeValues(
-                        _humanizationConfig.minWpm.toDouble(),
-                        _humanizationConfig.maxWpm.toDouble(),
-                      ),
-                      min: 15,
-                      max: 90,
-                      divisions: 15,
-                      labels: RangeLabels(
-                        '${_humanizationConfig.minWpm} WPM',
-                        '${_humanizationConfig.maxWpm} WPM',
-                      ),
-                      onChanged: (vals) {
-                        setModalState(() {
-                          _humanizationConfig = _humanizationConfig.copyWith(
-                            minWpm: vals.start.round(),
-                            maxWpm: vals.end.round(),
-                          );
-                        });
-                        setState(() {});
-                      },
-                    ),
-                    const SizedBox(height: 12),
+                      const Divider(height: 24),
 
-                    // Typo Simulation Rate
-                    Text(
-                      'Typo Frequency: ${_humanizationConfig.errorRatePercent.toStringAsFixed(1)}% '
-                      '(${_humanizationConfig.errorRatePercent == 0 ? 'No Mistakes' : 'Mistypes key, pauses, backspaces & fixes'})',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    Slider(
-                      value: _humanizationConfig.errorRatePercent,
-                      min: 0.0,
-                      max: 10.0,
-                      divisions: 20,
-                      label:
-                          '${_humanizationConfig.errorRatePercent.toStringAsFixed(1)}%',
-                      onChanged: (val) {
-                        setModalState(() {
-                          _humanizationConfig = _humanizationConfig.copyWith(
-                            errorRatePercent: val,
-                          );
-                        });
-                        setState(() {});
-                      },
-                    ),
-                    const SizedBox(height: 12),
+                      // Section 3: Interactive VS Code Shortcuts Navigation
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Interactive Shortcut Navigation'),
+                        subtitle: const Text(
+                          'Uses Quick Open (Ctrl+P) and Companion shortcut (Ctrl+Alt+N) to open and create files interactively',
+                        ),
+                        value: _humanizationConfig.useShortcutsForNavigation,
+                        onChanged: (enabled) {
+                          setModalState(() {
+                            _humanizationConfig = _humanizationConfig.copyWith(
+                              useShortcutsForNavigation: enabled,
+                            );
+                          });
+                          setState(() {});
+                        },
+                      ),
+                      Row(
+                        children: [
+                          const Text('Workstation OS: ',
+                              style: TextStyle(fontSize: 13)),
+                          ChoiceChip(
+                            label: const Text('Linux / Windows (Ctrl)'),
+                            selected: !_humanizationConfig.isMac,
+                            onSelected: (sel) {
+                              if (sel) {
+                                setModalState(() {
+                                  _humanizationConfig = _humanizationConfig
+                                      .copyWith(isMac: false);
+                                });
+                                setState(() {});
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: const Text('macOS (Cmd)'),
+                            selected: _humanizationConfig.isMac,
+                            onSelected: (sel) {
+                              if (sel) {
+                                setModalState(() {
+                                  _humanizationConfig =
+                                      _humanizationConfig.copyWith(isMac: true);
+                                });
+                                setState(() {});
+                              }
+                            },
+                          ),
+                        ],
+                      ),
 
-                    // Thinking Pauses
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Natural Thinking Pauses'),
-                      subtitle: const Text(
-                        'Brief pauses after newlines, semicolons, and code blocks',
-                      ),
-                      value: _humanizationConfig.enableThinkingPauses,
-                      onChanged: (enabled) {
-                        setModalState(() {
-                          _humanizationConfig = _humanizationConfig.copyWith(
-                            enableThinkingPauses: enabled,
-                          );
-                        });
-                        setState(() {});
-                      },
-                    ),
+                      const Divider(height: 24),
 
-                    // Auto-Indentation & Bracket Awareness
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Auto-Indentation & Bracket Awareness'),
-                      subtitle: const Text(
-                        'Aligns with VS Code auto-indent and auto-closing brackets without duplicate characters',
+                      // Section 4: Language-Aware Syntax & Indentation Engine
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title:
+                            const Text('Language-Aware Indentation & Dedent'),
+                        subtitle: const Text(
+                          'Aligns with Python block indentation, C-style braces, and dedents cleanly to eliminate staircase cascade',
+                        ),
+                        value: _humanizationConfig.autoIndentationAware,
+                        onChanged: (enabled) {
+                          setModalState(() {
+                            _humanizationConfig = _humanizationConfig.copyWith(
+                              autoIndentationAware: enabled,
+                              autoBracketAware: enabled,
+                            );
+                          });
+                          setState(() {});
+                        },
                       ),
-                      value: _humanizationConfig.autoIndentationAware &&
-                          _humanizationConfig.autoBracketAware,
-                      onChanged: (enabled) {
-                        setModalState(() {
-                          _humanizationConfig = _humanizationConfig.copyWith(
-                            autoIndentationAware: enabled,
-                            autoBracketAware: enabled,
-                          );
-                        });
-                        setState(() {});
-                      },
-                    ),
 
-                    // Self-Healing Drift Fixer
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Self-Healing Drift Fixer'),
-                      subtitle: const Text(
-                        'Detects unexpected edits, typos, or deleted code; auto-navigates and heals via arrow keys & Backspace',
-                      ),
-                      value: _humanizationConfig.selfHealingFixer,
-                      onChanged: (enabled) {
-                        setModalState(() {
-                          _humanizationConfig = _humanizationConfig.copyWith(
-                            selfHealingFixer: enabled,
-                          );
-                        });
-                        setState(() {});
-                      },
-                    ),
+                      const Divider(height: 24),
 
-                    // Ctrl Navigation Speedup
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Ctrl Navigation & Word Deletion'),
-                      subtitle: const Text(
-                        'Uses Ctrl+Arrow and Ctrl+Backspace for rapid cursor positioning and fixing',
+                      // Section 5: Speed & Realistic Typos
+                      Text(
+                        'Typing Speed: ${_humanizationConfig.minWpm} - ${_humanizationConfig.maxWpm} WPM',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      value: _humanizationConfig.enableCtrlSpeedup,
-                      onChanged: (enabled) {
-                        setModalState(() {
-                          _humanizationConfig = _humanizationConfig.copyWith(
-                            enableCtrlSpeedup: enabled,
-                          );
-                        });
-                        setState(() {});
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: () => Navigator.pop(modalCtx),
-                        child: const Text('Apply Settings'),
+                      RangeSlider(
+                        values: RangeValues(
+                          _humanizationConfig.minWpm.toDouble(),
+                          _humanizationConfig.maxWpm.toDouble(),
+                        ),
+                        min: 15,
+                        max: 95,
+                        divisions: 16,
+                        labels: RangeLabels(
+                          '${_humanizationConfig.minWpm} WPM',
+                          '${_humanizationConfig.maxWpm} WPM',
+                        ),
+                        onChanged: (vals) {
+                          setModalState(() {
+                            _humanizationConfig = _humanizationConfig.copyWith(
+                              minWpm: vals.start.round(),
+                              maxWpm: vals.end.round(),
+                            );
+                          });
+                          setState(() {});
+                        },
                       ),
-                    ),
-                  ],
-                ),
-              ),
+                      const SizedBox(height: 8),
+
+                      Text(
+                        'Typo Simulation: ${_humanizationConfig.errorRatePercent.toStringAsFixed(1)}% '
+                        '(${_humanizationConfig.errorRatePercent == 0 ? 'No Mistakes' : 'Mistypes adjacent key, pauses, backspaces & corrects'})',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      Slider(
+                        value: _humanizationConfig.errorRatePercent,
+                        min: 0.0,
+                        max: 8.0,
+                        divisions: 16,
+                        label:
+                            '${_humanizationConfig.errorRatePercent.toStringAsFixed(1)}%',
+                        onChanged: (val) {
+                          setModalState(() {
+                            _humanizationConfig = _humanizationConfig.copyWith(
+                              errorRatePercent: val,
+                            );
+                          });
+                          setState(() {});
+                        },
+                      ),
+
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Natural Thinking Bursts'),
+                        subtitle: const Text(
+                          'Simulates human pauses at newlines, semicolons, and code block transitions',
+                        ),
+                        value: _humanizationConfig.enableThinkingPauses,
+                        onChanged: (enabled) {
+                          setModalState(() {
+                            _humanizationConfig = _humanizationConfig.copyWith(
+                              enableThinkingPauses: enabled,
+                            );
+                          });
+                          setState(() {});
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: () => Navigator.pop(modalCtx),
+                          child: const Text('Apply Settings'),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             );
           },
         );
@@ -813,8 +1021,9 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
       context: context,
       isDismissible: false,
       enableDrag: false,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) {
         return Consumer(
@@ -826,18 +1035,39 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
 
             final isPaused = progress.status == AutomationStatus.paused;
             final isCompleted = progress.status == AutomationStatus.completed;
+            final isResting = progress.status == AutomationStatus.resting;
+            final isNavigating = progress.status == AutomationStatus.navigating;
 
             final percent = progress.totalCharacters > 0
                 ? (progress.charactersTyped / progress.totalCharacters)
                     .clamp(0.0, 1.0)
                 : 0.0;
 
+            final elapsedMin = (progress.sessionElapsedSeconds ~/ 60)
+                .toString()
+                .padLeft(2, '0');
+            final elapsedSec = (progress.sessionElapsedSeconds % 60)
+                .toString()
+                .padLeft(2, '0');
+
             return SafeArea(
               child: Padding(
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.outlineVariant,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -845,24 +1075,34 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                           children: [
                             Icon(
                               isCompleted
-                                  ? Icons.check_circle
-                                  : (isPaused
-                                      ? Icons.pause_circle_outline
-                                      : Icons.keyboard),
+                                  ? Icons.check_circle_rounded
+                                  : (isResting
+                                      ? Icons.coffee_rounded
+                                      : (isPaused
+                                          ? Icons.pause_circle_outline_rounded
+                                          : (isNavigating
+                                              ? Icons.explore_rounded
+                                              : Icons.keyboard_rounded))),
                               color: isCompleted
                                   ? Colors.green
-                                  : (isPaused
-                                      ? Colors.orange
-                                      : theme.colorScheme.primary),
-                              size: 28,
+                                  : (isResting
+                                      ? Colors.amber.shade800
+                                      : (isPaused
+                                          ? Colors.orange
+                                          : theme.colorScheme.primary)),
+                              size: 26,
                             ),
                             const SizedBox(width: 10),
                             Text(
                               isCompleted
                                   ? 'Automation Completed!'
-                                  : (isPaused
-                                      ? 'Automation Paused'
-                                      : 'Auto-Typing in Progress...'),
+                                  : (isResting
+                                      ? 'Deep Work Rest Break'
+                                      : (isPaused
+                                          ? 'Automation Paused'
+                                          : (isNavigating
+                                              ? 'Navigating in VS Code...'
+                                              : 'Auto-Typing in Progress...'))),
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -879,11 +1119,111 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
 
-                    // Progress indicators
-                    LinearProgressIndicator(value: percent, minHeight: 8),
-                    const SizedBox(height: 12),
+                    // Deep Work Break Alert Card
+                    if (isResting) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.tertiaryContainer,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.self_improvement_rounded,
+                                size: 28,
+                                color: theme.colorScheme.onTertiaryContainer),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Resting hands & eyes',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color:
+                                          theme.colorScheme.onTertiaryContainer,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Resumes in ${(progress.breakRemainingSeconds ~/ 60).toString().padLeft(2, '0')}:${(progress.breakRemainingSeconds % 60).toString().padLeft(2, '0')}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme
+                                          .colorScheme.onTertiaryContainer
+                                          .withAlpha(210),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            FilledButton.tonal(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: theme.colorScheme.surface,
+                                foregroundColor: theme.colorScheme.onSurface,
+                              ),
+                              onPressed: typerNotifier.skipBreak,
+                              child: const Text('Skip Break',
+                                  style: TextStyle(fontSize: 12)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    // Navigation Banner
+                    if (isNavigating) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.secondaryContainer
+                              .withAlpha(160),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          children: [
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                progress.statusMessage.isNotEmpty
+                                    ? progress.statusMessage
+                                    : 'Navigating to file...',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.colorScheme.onSecondaryContainer,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    // Material 3 Expressive Progress Indicator
+                    M3ELinearProgressIndicator(
+                      value: percent,
+                      minHeight: 8,
+                      color: isResting
+                          ? Colors.amber.shade700
+                          : theme.colorScheme.primary,
+                      backgroundColor:
+                          theme.colorScheme.surfaceContainerHighest,
+                      strokeCap: StrokeCap.round,
+                    ),
+                    const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -898,29 +1238,52 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Active File: ${progress.activeFileName}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Active: ${progress.activeFileName}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
                         ),
-                      ),
+                        if (progress.activeFileName.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              LanguageIndentationHelper.getLanguageDisplayName(
+                                LanguageIndentationHelper.detectLanguage(
+                                    progress.activeFileName),
+                              ).split(' ').first,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
 
                     // Live Stats Card
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
+                          horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -930,13 +1293,28 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                               Text('${progress.currentWpm} WPM',
                                   style: const TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 16)),
+                                      fontSize: 15)),
                               const Text('Typing Speed',
                                   style: TextStyle(fontSize: 11)),
                             ],
                           ),
                           Container(
-                              height: 28,
+                              height: 26,
+                              width: 1,
+                              color: theme.colorScheme.outlineVariant),
+                          Column(
+                            children: [
+                              Text('$elapsedMin:$elapsedSec',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: Colors.blue)),
+                              const Text('Session Time',
+                                  style: TextStyle(fontSize: 11)),
+                            ],
+                          ),
+                          Container(
+                              height: 26,
                               width: 1,
                               color: theme.colorScheme.outlineVariant),
                           Column(
@@ -944,31 +1322,16 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                               Text('${progress.typosCorrected}',
                                   style: const TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 16,
+                                      fontSize: 15,
                                       color: Colors.orange)),
-                              const Text('Typos Corrected',
-                                  style: TextStyle(fontSize: 11)),
-                            ],
-                          ),
-                          Container(
-                              height: 28,
-                              width: 1,
-                              color: theme.colorScheme.outlineVariant),
-                          Column(
-                            children: [
-                              Text('${progress.driftFixesApplied}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: Colors.blue)),
-                              const Text('Self-Healed',
+                              const Text('Typos Fixed',
                                   style: TextStyle(fontSize: 11)),
                             ],
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
 
                     // Control Buttons
                     Row(
@@ -1000,8 +1363,9 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                           Expanded(
                             child: FilledButton.tonalIcon(
                               style: FilledButton.styleFrom(
-                                  backgroundColor: Colors.red.shade100,
-                                  foregroundColor: Colors.red.shade900),
+                                backgroundColor: Colors.red.shade100,
+                                foregroundColor: Colors.red.shade900,
+                              ),
                               icon: const Icon(Icons.stop),
                               label: const Text('Stop'),
                               onPressed: () {

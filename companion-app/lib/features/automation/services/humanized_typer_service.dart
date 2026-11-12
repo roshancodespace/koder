@@ -8,10 +8,13 @@ import '../../project/models/project_models.dart';
 import '../../project/providers/project_provider.dart';
 import '../models/humanization_config.dart';
 import 'keyboard_scancode_mapper.dart';
+import 'language_indentation_helper.dart';
 
 enum AutomationStatus {
   idle,
+  navigating,
   running,
+  resting, // Deep work break
   paused,
   completed,
   cancelled,
@@ -20,6 +23,7 @@ enum AutomationStatus {
 
 class AutomationProgress {
   final AutomationStatus status;
+  final String statusMessage;
   final String projectId;
   final String activeFileName;
   final int currentFileIndex;
@@ -30,10 +34,13 @@ class AutomationProgress {
   final int typosCorrected;
   final int driftFixesApplied;
   final int currentWpm;
+  final int breakRemainingSeconds;
+  final int sessionElapsedSeconds;
   final String? errorMessage;
 
   const AutomationProgress({
     this.status = AutomationStatus.idle,
+    this.statusMessage = '',
     this.projectId = '',
     this.activeFileName = '',
     this.currentFileIndex = 0,
@@ -44,11 +51,14 @@ class AutomationProgress {
     this.typosCorrected = 0,
     this.driftFixesApplied = 0,
     this.currentWpm = 0,
+    this.breakRemainingSeconds = 0,
+    this.sessionElapsedSeconds = 0,
     this.errorMessage,
   });
 
   AutomationProgress copyWith({
     AutomationStatus? status,
+    String? statusMessage,
     String? projectId,
     String? activeFileName,
     int? currentFileIndex,
@@ -59,10 +69,13 @@ class AutomationProgress {
     int? typosCorrected,
     int? driftFixesApplied,
     int? currentWpm,
+    int? breakRemainingSeconds,
+    int? sessionElapsedSeconds,
     String? errorMessage,
   }) {
     return AutomationProgress(
       status: status ?? this.status,
+      statusMessage: statusMessage ?? this.statusMessage,
       projectId: projectId ?? this.projectId,
       activeFileName: activeFileName ?? this.activeFileName,
       currentFileIndex: currentFileIndex ?? this.currentFileIndex,
@@ -73,6 +86,10 @@ class AutomationProgress {
       typosCorrected: typosCorrected ?? this.typosCorrected,
       driftFixesApplied: driftFixesApplied ?? this.driftFixesApplied,
       currentWpm: currentWpm ?? this.currentWpm,
+      breakRemainingSeconds:
+          breakRemainingSeconds ?? this.breakRemainingSeconds,
+      sessionElapsedSeconds:
+          sessionElapsedSeconds ?? this.sessionElapsedSeconds,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
@@ -98,6 +115,7 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
   bool _isPaused = false;
   bool _isCancelled = false;
   bool _skipRequested = false;
+  bool _skipBreakRequested = false;
 
   HumanizedTyperNotifier(
     this._hidNotifier, {
@@ -111,7 +129,10 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
 
   void pause() {
     _isPaused = true;
-    state = state.copyWith(status: AutomationStatus.paused);
+    state = state.copyWith(
+      status: AutomationStatus.paused,
+      statusMessage: 'Automation Paused',
+    );
     _saveCheckpoint(
       projectId: state.projectId,
       fileIndex: state.currentFileIndex,
@@ -125,13 +146,20 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
 
   void resume() {
     _isPaused = false;
-    state = state.copyWith(status: AutomationStatus.running);
+    state = state.copyWith(
+      status: AutomationStatus.running,
+      statusMessage: 'Auto-Typing in Progress...',
+    );
   }
 
   void cancel() {
     _isCancelled = true;
     _isPaused = false;
-    state = state.copyWith(status: AutomationStatus.cancelled);
+    _skipBreakRequested = true;
+    state = state.copyWith(
+      status: AutomationStatus.cancelled,
+      statusMessage: 'Automation Stopped',
+    );
     _saveCheckpoint(
       projectId: state.projectId,
       fileIndex: state.currentFileIndex,
@@ -147,6 +175,143 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
     _skipRequested = true;
   }
 
+  void skipBreak() {
+    _skipBreakRequested = true;
+  }
+
+  /// Sends a string of keystrokes character-by-character at natural typing cadence
+  Future<void> _typeStringHumanized(String text, {int charDelayMs = 35}) async {
+    for (int i = 0; i < text.length; i++) {
+      if (_isCancelled) break;
+      final ch = text[i];
+      final stroke = KeyboardScancodeMapper.charToKeyStroke(ch);
+      if (stroke != null) {
+        await _hidNotifier.sendShortcut(stroke.modifier, stroke.keyCode);
+        await Future<void>.delayed(Duration(milliseconds: charDelayMs));
+      }
+    }
+  }
+
+  /// Ensures target file is open and active in VS Code editor.
+  /// Uses humanized shortcuts (Ctrl+P Quick Open, then Ctrl+Alt+N Create File)
+  /// rather than instant background filesystem modifications.
+  Future<bool> _ensureFileOpenAndActive(
+    FileToType file,
+    HumanizationConfig config,
+  ) async {
+    final targetPath = file.relativePath;
+    final normalizedTarget = targetPath.replaceAll('\\', '/');
+
+    // 1. Check if the active editor in VS Code is already this file
+    final editorState = _getEditorState?.call();
+    final activePath = editorState?['relativePath'] as String?;
+    if (activePath != null) {
+      final normalizedActive = activePath.replaceAll('\\', '/');
+      if (normalizedActive.endsWith(normalizedTarget) ||
+          normalizedTarget.endsWith(normalizedActive)) {
+        return true;
+      }
+    }
+
+    if (!config.useShortcutsForNavigation) {
+      final prepare = _prepareFileInEditor;
+      if (prepare != null) {
+        return await prepare(file.relativePath);
+      }
+      return false;
+    }
+
+    // 2. Humanized Shortcut Navigation
+    state = state.copyWith(
+      status: AutomationStatus.navigating,
+      statusMessage: 'Navigating to $targetPath via Quick Open...',
+    );
+
+    // Step A: Quick Open (Ctrl+P / Cmd+P)
+    final quickOpenStroke =
+        config.isMac ? HidKeyStroke.cmdP : HidKeyStroke.ctrlP;
+    await _hidNotifier.sendShortcut(
+      quickOpenStroke.modifier,
+      quickOpenStroke.keyCode,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 380));
+
+    // Type the file name / relative path into Quick Open
+    await _typeStringHumanized(targetPath, charDelayMs: 35);
+    await Future<void>.delayed(const Duration(milliseconds: 450));
+
+    // Press Enter to open
+    await _hidNotifier.sendShortcut(
+      HidKeyStroke.enter.modifier,
+      HidKeyStroke.enter.keyCode,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 650));
+
+    // Verify if VS Code opened the file
+    final stateAfterQuickOpen = _getEditorState?.call();
+    final newActive = stateAfterQuickOpen?['relativePath'] as String?;
+    if (newActive != null) {
+      final normalizedNew = newActive.replaceAll('\\', '/');
+      if (normalizedNew.endsWith(normalizedTarget) ||
+          normalizedTarget.endsWith(normalizedNew)) {
+        return true;
+      }
+    }
+
+    // Step B: File does not exist yet. Dismiss Quick Open palette if still open.
+    await _hidNotifier.sendShortcut(
+      HidKeyStroke.escape.modifier,
+      HidKeyStroke.escape.keyCode,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+
+    // Use Companion Create File shortcut (Ctrl+Alt+N / Cmd+Alt+N)
+    state = state.copyWith(
+      status: AutomationStatus.navigating,
+      statusMessage:
+          'Creating $targetPath via Companion shortcut (Ctrl+Alt+N)...',
+    );
+
+    final createFileStroke =
+        config.isMac ? HidKeyStroke.cmdAltN : HidKeyStroke.ctrlAltN;
+    await _hidNotifier.sendShortcut(
+      createFileStroke.modifier,
+      createFileStroke.keyCode,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+
+    // Type relative file path into the InputBox
+    await _typeStringHumanized(targetPath, charDelayMs: 38);
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+
+    // Press Enter to confirm file creation
+    await _hidNotifier.sendShortcut(
+      HidKeyStroke.enter.modifier,
+      HidKeyStroke.enter.keyCode,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+
+    // Verify if file is now active
+    final stateAfterCreate = _getEditorState?.call();
+    final createdActive = stateAfterCreate?['relativePath'] as String?;
+    if (createdActive != null) {
+      final norm = createdActive.replaceAll('\\', '/');
+      if (norm.endsWith(normalizedTarget) || normalizedTarget.endsWith(norm)) {
+        return true;
+      }
+    }
+
+    // Step C: Fallback to extension RPC if shortcut didn't register
+    final prepareFallback = _prepareFileInEditor;
+    if (prepareFallback != null) {
+      final success = await prepareFallback(file.relativePath);
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      return success;
+    }
+
+    return true;
+  }
+
   Future<void> startAutomation(
     String projectId,
     List<FileToType> files, {
@@ -159,6 +324,7 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
     _isPaused = false;
     _isCancelled = false;
     _skipRequested = false;
+    _skipBreakRequested = false;
 
     final totalChars =
         files.fold<int>(0, (sum, file) => sum + file.content.length);
@@ -171,6 +337,7 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
 
     state = AutomationProgress(
       status: AutomationStatus.running,
+      statusMessage: 'Starting Humanized Auto-Typing...',
       projectId: projectId,
       activeFileName:
           files[min(resumeFileIndex, files.length - 1)].relativePath,
@@ -182,336 +349,365 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
       typosCorrected: 0,
       driftFixesApplied: 0,
       currentWpm: (config.minWpm + config.maxWpm) ~/ 2,
+      breakRemainingSeconds: 0,
+      sessionElapsedSeconds: 0,
     );
 
     int overallTyped = startTyped;
     int overallTypos = 0;
-    int overallDriftFixes = 0;
+    final stopwatch = Stopwatch()..start();
+    int nextBreakSeconds =
+        config.enableDeepWorkBreaks ? (config.breakIntervalMinutes * 60) : 0;
+    final int sessionGoalSeconds = config.sessionDurationMinutes * 60;
 
     for (int i = resumeFileIndex; i < files.length; i++) {
       if (_isCancelled) break;
       _skipRequested = false;
 
       final file = files[i];
-      final text = file.content;
-      final textLength = text.length;
-      final int startOffset = (i == resumeFileIndex) ? resumeCharOffset : 0;
+      final normalizedTarget = file.relativePath.replaceAll('\\', '/');
 
       state = state.copyWith(
         currentFileIndex: i,
-        characterOffset: startOffset,
+        characterOffset: 0,
         activeFileName: file.relativePath,
+        status: AutomationStatus.navigating,
+        statusMessage: 'Preparing ${file.relativePath}...',
       );
 
-      // Auto-open or create the file in VS Code via WebSocket RPC if connected
-      final prepareFn = _prepareFileInEditor;
-      if (prepareFn != null) {
-        try {
-          await prepareFn(file.relativePath);
-          // Wait briefly for VS Code to switch and render the editor tab
-          await Future<void>.delayed(const Duration(milliseconds: 600));
-        } catch (_) {}
-      }
+      // Open or create the file using humanized VS Code shortcuts
+      await _ensureFileOpenAndActive(file, config);
       if (_isCancelled) break;
+
+      // Detect language profile and tab size
+      final editorState = _getEditorState?.call();
+      final editorLang = editorState?['languageId'] as String?;
+      final lang = LanguageIndentationHelper.detectLanguage(
+        file.relativePath,
+        languageId: editorLang,
+      );
+      final tabSize = (editorState?['tabSize'] as int?) ??
+          LanguageIndentationHelper.defaultTabSize(lang);
+
+      state = state.copyWith(
+        status: AutomationStatus.running,
+        statusMessage:
+            'Typing ${file.relativePath} (${LanguageIndentationHelper.getLanguageDisplayName(lang)})',
+      );
 
       // Save starting checkpoint for this file
       await _saveCheckpoint(
         projectId: projectId,
         fileIndex: i,
-        charOffset: startOffset,
+        charOffset: 0,
         fileName: file.relativePath,
         typed: overallTyped,
         total: totalChars,
         typos: overallTypos,
       );
 
-      // 1. Give human 1 second to view the next file starting
-      await Future<void>.delayed(const Duration(milliseconds: 1000));
+      // Pause briefly for user to view file start
+      await Future<void>.delayed(const Duration(milliseconds: 700));
       if (_isCancelled) break;
 
-      // 2. Type file content with humanization and drift checking
+      // Split file into lines for language-aware indentation handling
+      final rawLines = file.content.split('\n');
+      int predictedCol = 0;
+      int activeBlockIndent = 0;
       int burstCounter = 0;
       final int burstThreshold = _random.nextInt(25) + 20;
 
-      // Track active bracket stack for auto-bracket awareness
-      final List<String> openBrackets = [];
+      for (int lineIdx = 0; lineIdx < rawLines.length; lineIdx++) {
+        if (_isCancelled || _skipRequested) break;
 
-      for (int charIdx = startOffset; charIdx < textLength; charIdx++) {
-        if (_isCancelled) break;
-        if (_skipRequested) break;
-
-        // Handle pause loop
+        // Handle user pause loop
         while (_isPaused && !_isCancelled) {
           await Future<void>.delayed(const Duration(milliseconds: 200));
         }
         if (_isCancelled) break;
 
-        final char = text[charIdx];
+        // Session Duration Goal Check
+        final elapsedSeconds = stopwatch.elapsed.inSeconds;
+        state = state.copyWith(sessionElapsedSeconds: elapsedSeconds);
+        if (sessionGoalSeconds > 0 && elapsedSeconds >= sessionGoalSeconds) {
+          state = state.copyWith(
+            status: AutomationStatus.completed,
+            statusMessage:
+                'Session duration goal reached (${config.sessionDurationMinutes} min)!',
+          );
+          _isCancelled = true;
+          break;
+        }
 
-        // --- AUTO-INDENTATION & BRACKET AWARENESS ---
-        if (config.autoBracketAware) {
-          if (char == '{' || char == '(' || char == '[') {
-            openBrackets.add(char);
-          } else if (openBrackets.isNotEmpty) {
-            final last = openBrackets.last;
-            if ((char == '}' && last == '{') ||
-                (char == ')' && last == '(') ||
-                (char == ']' && last == '[')) {
-              openBrackets.removeLast();
+        // Deep Work Break Check
+        if (config.enableDeepWorkBreaks &&
+            elapsedSeconds >= nextBreakSeconds &&
+            nextBreakSeconds > 0) {
+          state = state.copyWith(
+            status: AutomationStatus.resting,
+            statusMessage: 'Deep Work Break — Rest your hands and eyes',
+            breakRemainingSeconds: config.breakDurationMinutes * 60,
+          );
+
+          int breakRemaining = config.breakDurationMinutes * 60;
+          while (breakRemaining > 0 &&
+              !_isCancelled &&
+              !_isPaused &&
+              !_skipBreakRequested) {
+            await Future<void>.delayed(const Duration(seconds: 1));
+            breakRemaining--;
+            state = state.copyWith(breakRemainingSeconds: breakRemaining);
+          }
+
+          _skipBreakRequested = false;
+          if (_isCancelled) break;
+
+          nextBreakSeconds =
+              stopwatch.elapsed.inSeconds + (config.breakIntervalMinutes * 60);
+          state = state.copyWith(
+            status: AutomationStatus.running,
+            statusMessage:
+                'Resuming typing ${file.relativePath} (${LanguageIndentationHelper.getLanguageDisplayName(lang)})',
+            breakRemainingSeconds: 0,
+          );
+        }
+
+        // Active File Focus Guard: If user switched tabs or closed file, re-open it
+        final getEditor = _getEditorState;
+        if (getEditor != null) {
+          final currentEd = getEditor();
+          final currentAct = currentEd?['relativePath'] as String?;
+          if (currentAct != null && currentAct.isNotEmpty) {
+            final norm = currentAct.replaceAll('\\', '/');
+            if (!norm.endsWith(normalizedTarget) &&
+                !normalizedTarget.endsWith(norm)) {
+              state = state.copyWith(
+                status: AutomationStatus.navigating,
+                statusMessage:
+                    'Focus lost. Re-focusing ${file.relativePath}...',
+              );
+              final quickOpen =
+                  config.isMac ? HidKeyStroke.cmdP : HidKeyStroke.ctrlP;
+              await _hidNotifier.sendShortcut(
+                quickOpen.modifier,
+                quickOpen.keyCode,
+              );
+              await Future<void>.delayed(const Duration(milliseconds: 350));
+              await _typeStringHumanized(file.relativePath, charDelayMs: 30);
+              await Future<void>.delayed(const Duration(milliseconds: 400));
+              await _hidNotifier.sendShortcut(
+                HidKeyStroke.enter.modifier,
+                HidKeyStroke.enter.keyCode,
+              );
+              await Future<void>.delayed(const Duration(milliseconds: 600));
+
+              state = state.copyWith(
+                status: AutomationStatus.running,
+                statusMessage: 'Typing ${file.relativePath}',
+              );
             }
           }
         }
 
-        final stroke = KeyboardScancodeMapper.charToKeyStroke(char);
-        if (stroke == null) {
-          overallTyped++;
+        final rawLine = rawLines[lineIdx];
+        final line = rawLine.endsWith('\r')
+            ? rawLine.substring(0, rawLine.length - 1)
+            : rawLine;
+        final targetIndent =
+            LanguageIndentationHelper.countLeadingIndent(line, tabSize);
+        final lineBody =
+            line.length >= targetIndent ? line.substring(targetIndent) : line;
+
+        // Case 1: Empty line
+        if (lineBody.isEmpty) {
+          if (lineIdx < rawLines.length - 1) {
+            await _hidNotifier.sendShortcut(
+              HidKeyStroke.enter.modifier,
+              HidKeyStroke.enter.keyCode,
+            );
+            overallTyped++;
+            final newlineDelay = config.newlinePauseMs + _random.nextInt(60);
+            await Future<void>.delayed(Duration(milliseconds: newlineDelay));
+          }
           continue;
         }
 
-        // --- TYPO SIMULATION ---
-        final shouldMakeTypo =
-            _random.nextDouble() * 100.0 < config.errorRatePercent;
-        if (shouldMakeTypo && char.trim().isNotEmpty) {
-          final adjacentKey = KeyboardScancodeMapper.getAdjacentKey(char);
-          if (adjacentKey != null) {
-            final wrongStroke =
-                KeyboardScancodeMapper.charToKeyStroke(adjacentKey);
-            if (wrongStroke != null) {
-              await _hidNotifier.sendShortcut(
-                wrongStroke.modifier,
-                wrongStroke.keyCode,
-              );
-              overallTypos++;
-              state = state.copyWith(typosCorrected: overallTypos);
+        // Case 2: Content line -> Language-aware indentation alignment
+        if (config.autoIndentationAware) {
+          final editorPos = _getEditorState?.call()?['cursorPosition'];
+          final currentRealCol =
+              (editorPos?['character'] as int?) ?? predictedCol;
 
-              final realizationMs = _random.nextInt(180) + 120;
-              await Future<void>.delayed(
-                Duration(milliseconds: realizationMs),
-              );
-
+          if (currentRealCol > targetIndent) {
+            // Dedent: send necessary backspaces
+            final toDelete = currentRealCol - targetIndent;
+            for (int d = 0; d < toDelete; d++) {
+              if (_isCancelled) break;
               await _hidNotifier.sendShortcut(
                 HidKeyStroke.backspace.modifier,
                 HidKeyStroke.backspace.keyCode,
               );
-
-              final recoveryMs = _random.nextInt(80) + 80;
-              await Future<void>.delayed(
-                Duration(milliseconds: recoveryMs),
+              await Future<void>.delayed(const Duration(milliseconds: 25));
+            }
+          } else if (currentRealCol < targetIndent) {
+            // Indent: send necessary spaces
+            final toAdd = targetIndent - currentRealCol;
+            for (int s = 0; s < toAdd; s++) {
+              if (_isCancelled) break;
+              await _hidNotifier.sendShortcut(
+                HidKeyStroke.space.modifier,
+                HidKeyStroke.space.keyCode,
               );
+              await Future<void>.delayed(const Duration(milliseconds: 25));
             }
           }
+        } else {
+          // If indentation awareness is disabled, type raw leading spaces
+          for (int s = 0; s < targetIndent; s++) {
+            if (_isCancelled) break;
+            await _hidNotifier.sendShortcut(
+              HidKeyStroke.space.modifier,
+              HidKeyStroke.space.keyCode,
+            );
+            await Future<void>.delayed(const Duration(milliseconds: 25));
+          }
         }
 
-        // --- TYPE ACTUAL CHARACTER ---
-        await _hidNotifier.sendShortcut(stroke.modifier, stroke.keyCode);
-        overallTyped++;
-        burstCounter++;
-
-        // --- SELF-HEALING DRIFT FIXER ---
-        // Run conservatively only on newlines after brief pause for editor debounce to settle
-        if (config.selfHealingFixer && char == '\n') {
-          await Future<void>.delayed(const Duration(milliseconds: 280));
+        // Type line body character-by-character with realistic typing physics
+        for (int c = 0; c < lineBody.length; c++) {
+          if (_isCancelled || _skipRequested) break;
+          while (_isPaused && !_isCancelled) {
+            await Future<void>.delayed(const Duration(milliseconds: 200));
+          }
           if (_isCancelled) break;
-          final fixes = await _healDriftIfDetected(
-            file.relativePath,
-            text,
-            charIdx + 1,
-            config,
-          );
-          if (fixes > 0) {
-            overallDriftFixes += fixes;
-            state = state.copyWith(driftFixesApplied: overallDriftFixes);
+
+          final char = lineBody[c];
+          final stroke = KeyboardScancodeMapper.charToKeyStroke(char);
+          if (stroke == null) {
+            overallTyped++;
+            continue;
+          }
+
+          // Typo simulation
+          final shouldMakeTypo =
+              _random.nextDouble() * 100.0 < config.errorRatePercent;
+          if (shouldMakeTypo && char.trim().isNotEmpty) {
+            final adjacentKey = KeyboardScancodeMapper.getAdjacentKey(char);
+            if (adjacentKey != null) {
+              final wrongStroke =
+                  KeyboardScancodeMapper.charToKeyStroke(adjacentKey);
+              if (wrongStroke != null) {
+                await _hidNotifier.sendShortcut(
+                  wrongStroke.modifier,
+                  wrongStroke.keyCode,
+                );
+                overallTypos++;
+                state = state.copyWith(typosCorrected: overallTypos);
+
+                final realizationMs = _random.nextInt(150) + 100;
+                await Future<void>.delayed(
+                  Duration(milliseconds: realizationMs),
+                );
+
+                await _hidNotifier.sendShortcut(
+                  HidKeyStroke.backspace.modifier,
+                  HidKeyStroke.backspace.keyCode,
+                );
+
+                final recoveryMs = _random.nextInt(70) + 60;
+                await Future<void>.delayed(Duration(milliseconds: recoveryMs));
+              }
+            }
+          }
+
+          // Type actual character
+          await _hidNotifier.sendShortcut(stroke.modifier, stroke.keyCode);
+          overallTyped++;
+          burstCounter++;
+
+          // Natural human typing delay
+          final randomWpm = _random.nextInt(
+                max(1, config.maxWpm - config.minWpm + 1),
+              ) +
+              config.minWpm;
+          final baseCharDelayMs = (60000 / (randomWpm * 5)).round();
+          final jitter = (_random.nextDouble() * 0.4 - 0.2) * baseCharDelayMs;
+          var sleepMs = max(25, (baseCharDelayMs + jitter).round());
+
+          // Punctuation pause
+          if (char == ';' ||
+              char == '}' ||
+              char == ')' ||
+              char == ']' ||
+              char == ',') {
+            sleepMs += config.punctuationPauseMs + _random.nextInt(80);
+          }
+
+          // Natural thinking burst pause
+          if (config.enableThinkingPauses && burstCounter >= burstThreshold) {
+            sleepMs += _random.nextInt(350) + 250;
+            burstCounter = 0;
+          }
+
+          await Future<void>.delayed(Duration(milliseconds: sleepMs));
+
+          if (overallTyped % 8 == 0) {
+            state = state.copyWith(
+              charactersTyped: overallTyped,
+              characterOffset: lineIdx,
+              currentWpm: randomWpm,
+            );
           }
         }
 
-        // --- AUTO-INDENTATION HANDLING AFTER NEWLINE ---
-        if (char == '\n' && config.autoIndentationAware) {
-          final editorState = _getEditorState?.call();
-          final tabSize = (editorState?['tabSize'] as int?) ?? 2;
-          final skipped = _detectAutoIndentSkip(text, charIdx + 1, tabSize);
-          if (skipped > 0) {
-            // Fast-forward past the auto-indented spaces
-            charIdx += skipped;
-            overallTyped += skipped;
-          }
-        }
+        activeBlockIndent = targetIndent;
 
-        // --- CALCULATE NATURAL DELAY ---
-        final randomWpm = _random.nextInt(
-              max(1, config.maxWpm - config.minWpm + 1),
-            ) +
-            config.minWpm;
-        final baseCharDelayMs = (60000 / (randomWpm * 5)).round();
-        final jitter = (_random.nextDouble() * 0.5 - 0.25) * baseCharDelayMs;
-        var sleepMs = max(25, (baseCharDelayMs + jitter).round());
+        // Press Enter if not the last line of the file
+        if (lineIdx < rawLines.length - 1) {
+          await _hidNotifier.sendShortcut(
+            HidKeyStroke.enter.modifier,
+            HidKeyStroke.enter.keyCode,
+          );
+          overallTyped++;
 
-        // Newline pause
-        if (char == '\n') {
-          sleepMs += config.newlinePauseMs + _random.nextInt(150);
-        }
-        // Punctuation pause
-        else if (char == ';' ||
-            char == '}' ||
-            char == ')' ||
-            char == ']' ||
-            char == ',') {
-          sleepMs += config.punctuationPauseMs + _random.nextInt(100);
-        }
+          final newlineDelay = config.newlinePauseMs + _random.nextInt(80);
+          await Future<void>.delayed(Duration(milliseconds: newlineDelay));
 
-        // Thinking burst pause
-        if (config.enableThinkingPauses && burstCounter >= burstThreshold) {
-          sleepMs += _random.nextInt(400) + 300;
-          burstCounter = 0;
-        }
-
-        if (charIdx % 5 == 0) {
-          state = state.copyWith(
-            charactersTyped: overallTyped,
-            characterOffset: charIdx,
-            currentWpm: randomWpm,
+          // Predict next line's cursor column based on language syntax
+          predictedCol = LanguageIndentationHelper.predictNextLineIndent(
+            language: lang,
+            lineBody: lineBody,
+            lineIndent: targetIndent,
+            tabSize: tabSize,
+            previousBlockIndent: activeBlockIndent,
           );
         }
 
-        // Checkpoint persistence every 50 characters
-        if (charIdx > 0 && charIdx % 50 == 0) {
+        // Save progress checkpoint every 10 lines
+        if (lineIdx > 0 && lineIdx % 10 == 0) {
           _saveCheckpoint(
             projectId: projectId,
             fileIndex: i,
-            charOffset: charIdx,
+            charOffset: lineIdx,
             fileName: file.relativePath,
             typed: overallTyped,
             total: totalChars,
             typos: overallTypos,
           );
         }
-
-        await Future<void>.delayed(Duration(milliseconds: sleepMs));
-      }
-
-      // After finishing file, send Save (Ctrl+S: modifier 0x01, keycode 0x16)
-      if (!_isCancelled && !_skipRequested) {
-        await Future<void>.delayed(const Duration(milliseconds: 300));
-        await _hidNotifier.sendShortcut(0x01, 0x16); // Ctrl + S
-        await Future<void>.delayed(const Duration(milliseconds: 500));
       }
     }
 
     if (!_isCancelled) {
       state = state.copyWith(
         status: AutomationStatus.completed,
+        statusMessage: 'Automation Successfully Completed!',
         charactersTyped: totalChars,
       );
       if (_repository != null && projectId.isNotEmpty) {
         await _repository.clearAutomationCheckpoint(projectId);
       }
     }
-  }
-
-  Future<int> _healDriftIfDetected(
-    String targetRelPath,
-    String expectedFullContent,
-    int charIdx,
-    HumanizationConfig config,
-  ) async {
-    final getEditor = _getEditorState;
-    if (getEditor == null) return 0;
-    final editorState = getEditor();
-    if (editorState == null) return 0;
-
-    // 1. Guard: Only proceed if active file in VS Code matches target file
-    final activeRelPath = editorState['relativePath'] as String?;
-    if (activeRelPath == null) return 0;
-    final normalizedActive = activeRelPath.replaceAll('\\', '/');
-    final normalizedTarget = targetRelPath.replaceAll('\\', '/');
-    if (!normalizedActive.endsWith(normalizedTarget) &&
-        !normalizedTarget.endsWith(normalizedActive)) {
-      return 0;
-    }
-
-    final live = editorState['activeContent'] as String?;
-    if (live == null || live.isEmpty) return 0;
-
-    final expected = expectedFullContent.substring(0, charIdx);
-    if (live == expected) return 0;
-
-    // 2. Guard: If expected starts with live, recent keystrokes are still in-transit
-    // or pending VS Code's 250ms debounce. NEVER re-type them!
-    if (expected.startsWith(live)) {
-      return 0;
-    }
-
-    int fixesCount = 0;
-
-    // Case 1: Live has extra characters at the end (e.g. auto-closing pair: extra ")" or quote)
-    if (live.startsWith(expected) && live.length > expected.length) {
-      int extraCount = live.length - expected.length;
-      // Only fix small local over-insertions (at most 4 characters)
-      if (extraCount <= 4) {
-        fixesCount += extraCount;
-        while (extraCount > 0 && !_isCancelled) {
-          await _hidNotifier.sendShortcut(
-            HidKeyStroke.backspace.modifier,
-            HidKeyStroke.backspace.keyCode,
-          );
-          extraCount--;
-          await Future<void>.delayed(const Duration(milliseconds: 35));
-        }
-      }
-      return fixesCount;
-    }
-
-    // Case 2: Divergence at the end of the line
-    int lcp = 0;
-    final minLen = min(live.length, expected.length);
-    while (lcp < minLen && live[lcp] == expected[lcp]) {
-      lcp++;
-    }
-
-    final unwantedInLive = live.length - lcp;
-    final missingInExpected = expected.length - lcp;
-
-    // Strictly conservative: only fix tiny local typos (<= 4 chars)
-    if (unwantedInLive > 0 && unwantedInLive <= 4 && missingInExpected <= 4) {
-      fixesCount += unwantedInLive + missingInExpected;
-      int toDelete = unwantedInLive;
-      while (toDelete > 0 && !_isCancelled) {
-        await _hidNotifier.sendShortcut(
-          HidKeyStroke.backspace.modifier,
-          HidKeyStroke.backspace.keyCode,
-        );
-        toDelete--;
-        await Future<void>.delayed(const Duration(milliseconds: 35));
-      }
-
-      for (int i = lcp; i < expected.length; i++) {
-        if (_isCancelled) break;
-        final ch = expected[i];
-        final stroke = KeyboardScancodeMapper.charToKeyStroke(ch);
-        if (stroke != null) {
-          await _hidNotifier.sendShortcut(stroke.modifier, stroke.keyCode);
-          await Future<void>.delayed(const Duration(milliseconds: 30));
-        }
-      }
-    }
-
-    return fixesCount;
-  }
-
-  int _detectAutoIndentSkip(
-    String text,
-    int nextCharIdx,
-    int tabSize,
-  ) {
-    if (nextCharIdx >= text.length) return 0;
-    int spaceCount = 0;
-    while (nextCharIdx + spaceCount < text.length &&
-        text[nextCharIdx + spaceCount] == ' ') {
-      spaceCount++;
-    }
-    if (spaceCount >= tabSize) {
-      return tabSize;
-    }
-    return spaceCount;
   }
 
   Future<void> _saveCheckpoint({

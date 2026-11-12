@@ -25,6 +25,15 @@ class HidKeyStroke {
   static const ctrlBackspace = HidKeyStroke(0x01, 0x2A);
   static const ctrlDelete = HidKeyStroke(0x01, 0x4C);
   static const ctrlA = HidKeyStroke(0x01, 0x04);
+
+  // Shortcuts for humanized VS Code navigation & file management
+  static const ctrlP = HidKeyStroke(0x01, 0x13); // Ctrl + P (Quick Open)
+  static const cmdP = HidKeyStroke(0x08, 0x13); // Cmd + P (Mac Quick Open)
+  static const ctrlAltN =
+      HidKeyStroke(0x05, 0x11); // Ctrl + Alt + N (Companion Create File)
+  static const cmdAltN =
+      HidKeyStroke(0x0C, 0x11); // Cmd + Alt + N (Mac Companion Create File)
+  static const shiftTab = HidKeyStroke(0x02, 0x2B); // Shift + Tab (Dedent)
 }
 
 class KeyboardScancodeMapper {
