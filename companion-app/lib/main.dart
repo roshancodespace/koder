@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'features/bluetooth_hid/bluetooth_hid_service.dart';
+import 'features/bluetooth_hid/models/hid_state.dart';
+import 'features/foreground_service/foreground_service_manager.dart';
 
 void main() {
   runApp(const CompanionApp());
@@ -37,12 +40,17 @@ class CompanionApp extends StatelessWidget {
   }
 }
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final hidState = ref.watch(bluetoothHidServiceProvider);
+    final serviceState = ref.watch(foregroundServiceStateProvider);
+
+    final isHidConnected = hidState.status == HidConnectionStatus.connected;
+    final isServiceRunning = serviceState.status == ForegroundServiceStatus.running;
 
     return Scaffold(
       appBar: AppBar(
@@ -62,17 +70,31 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              const Wrap(
+              Wrap(
                 spacing: 8.0,
                 runSpacing: 8.0,
                 children: [
                   Chip(
-                    avatar: Icon(Icons.bluetooth, size: 18),
-                    label: Text('Bluetooth HID: Disconnected'),
+                    avatar: Icon(
+                      isHidConnected ? Icons.bluetooth_connected : Icons.bluetooth,
+                      size: 18,
+                    ),
+                    label: Text(
+                      'Bluetooth HID: ${isHidConnected ? 'Connected' : 'Disconnected'}',
+                    ),
                   ),
-                  Chip(
+                  const Chip(
                     avatar: Icon(Icons.wifi, size: 18),
                     label: Text('WebSocket: Disconnected'),
+                  ),
+                  Chip(
+                    avatar: Icon(
+                      isServiceRunning ? Icons.security : Icons.security_outlined,
+                      size: 18,
+                    ),
+                    label: Text(
+                      'Foreground: ${isServiceRunning ? 'Active' : 'Idle'}',
+                    ),
                   ),
                 ],
               ),
@@ -92,14 +114,18 @@ class HomeScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'System Ready',
+                        isHidConnected ? 'Companion Active' : 'System Ready',
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Material 3 initialized. Awaiting native platform channel and bridge connection.',
+                        hidState.lastError != null
+                            ? 'Error: ${hidState.lastError}'
+                            : (hidState.capability.errorMessage.isNotEmpty
+                                ? 'Capability: ${hidState.capability.errorMessage}'
+                                : 'Bluetooth HID and Android foreground service initialized.'),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
