@@ -5,7 +5,8 @@ import 'package:companion_app/features/foreground_service/foreground_service_man
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const MethodChannel serviceChannel = MethodChannel('com.companion.koder/service');
+  const MethodChannel serviceChannel =
+      MethodChannel('com.companion.koder/service');
 
   group('ForegroundServiceState Models', () {
     test('default values are initialized correctly', () {
@@ -53,7 +54,8 @@ void main() {
           .setMockMethodCallHandler(serviceChannel, null);
     });
 
-    test('startSession calls startService and transitions to running', () async {
+    test('startSession calls startService and transitions to running',
+        () async {
       final success = await notifier.startSession();
       expect(success, isTrue);
       expect(notifier.state.status, equals(ForegroundServiceStatus.running));

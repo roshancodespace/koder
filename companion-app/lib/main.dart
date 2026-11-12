@@ -37,4 +37,3 @@ class CompanionApp extends StatelessWidget {
     );
   }
 }
-

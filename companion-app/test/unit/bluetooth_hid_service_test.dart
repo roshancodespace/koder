@@ -105,7 +105,8 @@ void main() {
       final result = await notifier.connect('11:22:33:44:55:66');
       expect(result, isTrue);
       expect(notifier.state.status, equals(HidConnectionStatus.connecting));
-      expect(notifier.state.connectedDeviceAddress, equals('11:22:33:44:55:66'));
+      expect(
+          notifier.state.connectedDeviceAddress, equals('11:22:33:44:55:66'));
       expect(methodCalls.map((c) => c.method), contains('connect'));
       final connectCall = methodCalls.firstWhere((c) => c.method == 'connect');
       expect(connectCall.arguments['macAddress'], equals('11:22:33:44:55:66'));
@@ -115,7 +116,8 @@ void main() {
       final result = await notifier.sendShortcut(0x01, 0x04);
       expect(result, isTrue);
       expect(methodCalls.map((c) => c.method), contains('sendKeyPress'));
-      final sendCall = methodCalls.firstWhere((c) => c.method == 'sendKeyPress');
+      final sendCall =
+          methodCalls.firstWhere((c) => c.method == 'sendKeyPress');
       expect(sendCall.arguments['modifier'], equals(0x01));
       expect(sendCall.arguments['keyCode'], equals(0x04));
     });

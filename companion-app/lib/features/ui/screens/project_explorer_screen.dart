@@ -195,7 +195,8 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Column(
                 children: [
                   if (state.projects.isNotEmpty) ...[
@@ -204,7 +205,8 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                       items: state.projects
                           .map((p) => DropdownMenuItem(
                                 value: p.id,
-                                child: Text(p.name, overflow: TextOverflow.ellipsis),
+                                child: Text(p.name,
+                                    overflow: TextOverflow.ellipsis),
                               ))
                           .toList(),
                       onChanged: (id) {
@@ -235,8 +237,8 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
                               },
                             )
                           : null,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       border: const OutlineInputBorder(),
                     ),
                     onChanged: (val) => notifier.setSearchQuery(val),
@@ -296,9 +298,7 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
         return ListTile(
           dense: true,
           leading: Icon(
-            node.isDirectory
-                ? Icons.folder
-                : Icons.insert_drive_file_outlined,
+            node.isDirectory ? Icons.folder : Icons.insert_drive_file_outlined,
             size: 20,
             color: node.isDirectory ? Colors.amber[700] : Colors.blueGrey,
           ),
@@ -306,8 +306,7 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
             node.path,
             style: TextStyle(
               fontSize: 13,
-              decoration:
-                  node.isExcluded ? TextDecoration.lineThrough : null,
+              decoration: node.isExcluded ? TextDecoration.lineThrough : null,
               color: node.isExcluded ? Colors.grey : null,
             ),
           ),

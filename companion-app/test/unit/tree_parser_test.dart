@@ -27,14 +27,17 @@ void main() {
       expect(pathsList, contains('src/utils'));
       expect(pathsList, contains('src/utils/helpers.ts'));
 
-      final buttonFile = nodes.firstWhere((n) => n.path == 'src/components/button/button.tsx');
-      final buttonDir = nodes.firstWhere((n) => n.path == 'src/components/button');
+      final buttonFile =
+          nodes.firstWhere((n) => n.path == 'src/components/button/button.tsx');
+      final buttonDir =
+          nodes.firstWhere((n) => n.path == 'src/components/button');
       expect(buttonFile.parentId, buttonDir.id);
       expect(buttonFile.isDirectory, isFalse);
       expect(buttonDir.isDirectory, isTrue);
     });
 
-    test('default ignore patterns (.git, node_modules) are marked excluded', () {
+    test('default ignore patterns (.git, node_modules) are marked excluded',
+        () {
       final paths = [
         '.git/config',
         'node_modules/react/index.js',
@@ -51,7 +54,8 @@ void main() {
       expect(srcDir.isExcluded, isFalse);
     });
 
-    test('computeEffectiveExclusions recursively marks descendants as excluded', () {
+    test('computeEffectiveExclusions recursively marks descendants as excluded',
+        () {
       final paths = [
         'build/outputs/apk/app-debug.apk',
         'src/main.dart',
@@ -61,7 +65,8 @@ void main() {
       final effective = parser.computeEffectiveExclusions(nodes);
 
       final buildDir = nodes.firstWhere((n) => n.path == 'build');
-      final apkFile = nodes.firstWhere((n) => n.path == 'build/outputs/apk/app-debug.apk');
+      final apkFile =
+          nodes.firstWhere((n) => n.path == 'build/outputs/apk/app-debug.apk');
       final mainFile = nodes.firstWhere((n) => n.path == 'src/main.dart');
 
       expect(effective[buildDir.id], isTrue);

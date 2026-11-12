@@ -120,7 +120,8 @@ void main() {
       expect(notFound, isNull);
     });
 
-    test('insertFileNodes, getFileNodesByProject, and updateNodeExclusion', () async {
+    test('insertFileNodes, getFileNodesByProject, and updateNodeExclusion',
+        () async {
       final nodes = [
         const FileNodeEntity(
           id: 'n1',

@@ -107,7 +107,8 @@ void main() {
     testWidgets(
       'CommandsPadScreen renders quick action cards and triggers feedback',
       (WidgetTester tester) async {
-        const MethodChannel hidChannel = MethodChannel('com.companion.koder/hid');
+        const MethodChannel hidChannel =
+            MethodChannel('com.companion.koder/hid');
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(hidChannel, (MethodCall call) async {
           if (call.method == 'sendKeyPress') {

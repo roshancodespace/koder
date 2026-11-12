@@ -22,25 +22,30 @@ class WebSocketClientService {
   int _reconnectAttempts = 0;
   DateTime? _lastHeartbeat;
 
-  final _statusController = StreamController<CompanionConnectionStatus>.broadcast();
+  final _statusController =
+      StreamController<CompanionConnectionStatus>.broadcast();
   final _messageController = StreamController<ProtocolEnvelope>.broadcast();
-  final _editorStateController = StreamController<Map<String, dynamic>>.broadcast();
+  final _editorStateController =
+      StreamController<Map<String, dynamic>>.broadcast();
 
   // Pending requests awaiting response by correlation ID
   final _pendingRequests = <String, Completer<ProtocolEnvelope>>{};
 
   WebSocketClientService({
     WebSocketChannelFactory? channelFactory,
-  }) : _channelFactory = channelFactory ?? ((uri) => WebSocketChannel.connect(uri));
+  }) : _channelFactory =
+            channelFactory ?? ((uri) => WebSocketChannel.connect(uri));
 
   CompanionConnectionStatus get status => _status;
   CompanionConnectionConfig? get currentConfig => _currentConfig;
   DateTime? get lastHeartbeat => _lastHeartbeat;
   bool get isConnected => _status == CompanionConnectionStatus.connected;
 
-  Stream<CompanionConnectionStatus> get onStatusChanged => _statusController.stream;
+  Stream<CompanionConnectionStatus> get onStatusChanged =>
+      _statusController.stream;
   Stream<ProtocolEnvelope> get onMessageReceived => _messageController.stream;
-  Stream<Map<String, dynamic>> get onEditorStateChanged => _editorStateController.stream;
+  Stream<Map<String, dynamic>> get onEditorStateChanged =>
+      _editorStateController.stream;
 
   void _updateStatus(CompanionConnectionStatus newStatus) {
     if (_status != newStatus) {
@@ -99,7 +104,8 @@ class WebSocketClientService {
       _messageController.add(envelope);
 
       // Check if it matches a pending request
-      if (envelope.type == 'response' && _pendingRequests.containsKey(envelope.id)) {
+      if (envelope.type == 'response' &&
+          _pendingRequests.containsKey(envelope.id)) {
         final completer = _pendingRequests.remove(envelope.id);
         completer?.complete(envelope);
       }
@@ -246,7 +252,8 @@ class WebSocketClientService {
       timeout,
       onTimeout: () {
         _pendingRequests.remove(request.id);
-        throw TimeoutException('Request timed out after ${timeout.inSeconds}s', timeout);
+        throw TimeoutException(
+            'Request timed out after ${timeout.inSeconds}s', timeout);
       },
     );
   }

@@ -33,14 +33,16 @@ class ForegroundServiceNotifier extends StateNotifier<ForegroundServiceState> {
   final MethodChannel _channel;
 
   ForegroundServiceNotifier({MethodChannel? channel})
-      : _channel = channel ?? const MethodChannel('com.companion.koder/service'),
+      : _channel =
+            channel ?? const MethodChannel('com.companion.koder/service'),
         super(const ForegroundServiceState());
 
   Future<bool> startSession() async {
     try {
       final success = await _channel.invokeMethod<bool>('startService');
       if (success == true) {
-        state = state.copyWith(status: ForegroundServiceStatus.running, errorMessage: null);
+        state = state.copyWith(
+            status: ForegroundServiceStatus.running, errorMessage: null);
       }
       return success ?? false;
     } catch (e) {
@@ -56,7 +58,8 @@ class ForegroundServiceNotifier extends StateNotifier<ForegroundServiceState> {
     try {
       final success = await _channel.invokeMethod<bool>('stopService');
       if (success == true) {
-        state = state.copyWith(status: ForegroundServiceStatus.idle, errorMessage: null);
+        state = state.copyWith(
+            status: ForegroundServiceStatus.idle, errorMessage: null);
       }
       return success ?? false;
     } catch (e) {
@@ -70,14 +73,17 @@ class ForegroundServiceNotifier extends StateNotifier<ForegroundServiceState> {
 }
 
 final foregroundServiceStateProvider =
-    StateNotifierProvider<ForegroundServiceNotifier, ForegroundServiceState>((ref) {
+    StateNotifierProvider<ForegroundServiceNotifier, ForegroundServiceState>(
+        (ref) {
   final notifier = ForegroundServiceNotifier();
 
   // Synchronize with HID connection state transitions
   ref.listen<HidState>(bluetoothHidServiceProvider, (previous, next) {
-    if (next.status == HidConnectionStatus.connected && previous?.status != HidConnectionStatus.connected) {
+    if (next.status == HidConnectionStatus.connected &&
+        previous?.status != HidConnectionStatus.connected) {
       notifier.startSession();
-    } else if (next.status == HidConnectionStatus.disconnected && previous?.status == HidConnectionStatus.connected) {
+    } else if (next.status == HidConnectionStatus.disconnected &&
+        previous?.status == HidConnectionStatus.connected) {
       notifier.stopSession();
     }
   });

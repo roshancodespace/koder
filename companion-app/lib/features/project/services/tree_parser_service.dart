@@ -29,9 +29,8 @@ class TreeParserService {
       // Register all parent directory paths
       String currentDirPath = '';
       for (int i = 0; i < parts.length - 1; i++) {
-        currentDirPath = currentDirPath.isEmpty
-            ? parts[i]
-            : '$currentDirPath/${parts[i]}';
+        currentDirPath =
+            currentDirPath.isEmpty ? parts[i] : '$currentDirPath/${parts[i]}';
         directoriesSet.add(currentDirPath);
       }
     }
@@ -44,9 +43,8 @@ class TreeParserService {
           ? parts.sublist(0, parts.length - 1).join('/')
           : null;
       final id = _generateNodeId(projectId, dirPath);
-      final parentId = parentPath != null
-          ? _generateNodeId(projectId, parentPath)
-          : null;
+      final parentId =
+          parentPath != null ? _generateNodeId(projectId, parentPath) : null;
       final isDefaultExcluded = _isDefaultExcluded(name);
 
       nodesMap[dirPath] = FileNodeEntity(
@@ -71,9 +69,8 @@ class TreeParserService {
           ? parts.sublist(0, parts.length - 1).join('/')
           : null;
       final id = _generateNodeId(projectId, normalized);
-      final parentId = parentPath != null
-          ? _generateNodeId(projectId, parentPath)
-          : null;
+      final parentId =
+          parentPath != null ? _generateNodeId(projectId, parentPath) : null;
 
       final isDefaultExcluded = _isDefaultExcluded(name);
 
