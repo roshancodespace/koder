@@ -2,7 +2,7 @@
   "name": "vscode-companion",
   "displayName": "VS Code Companion",
   "description": "Companion system for Android external keyboard and workspace bridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "companion",
   "license": "MIT",
   "repository": {
