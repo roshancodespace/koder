@@ -92,6 +92,7 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
   final BluetoothHidNotifier _hidNotifier;
   final ProjectRepository? _repository;
   final Map<String, dynamic>? Function()? _getEditorState;
+  final Future<bool> Function(String relativePath)? _prepareFileInEditor;
   final Random _random = Random();
 
   bool _isPaused = false;
@@ -102,8 +103,10 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
     this._hidNotifier, {
     ProjectRepository? repository,
     Map<String, dynamic>? Function()? getEditorState,
+    Future<bool> Function(String relativePath)? prepareFileInEditor,
   })  : _repository = repository,
         _getEditorState = getEditorState,
+        _prepareFileInEditor = prepareFileInEditor,
         super(const AutomationProgress());
 
   void pause() {
@@ -200,6 +203,17 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
         activeFileName: file.relativePath,
       );
 
+      // Auto-open or create the file in VS Code via WebSocket RPC if connected
+      final prepareFn = _prepareFileInEditor;
+      if (prepareFn != null) {
+        try {
+          await prepareFn(file.relativePath);
+          // Wait briefly for VS Code to switch and render the editor tab
+          await Future<void>.delayed(const Duration(milliseconds: 600));
+        } catch (_) {}
+      }
+      if (_isCancelled) break;
+
       // Save starting checkpoint for this file
       await _saveCheckpoint(
         projectId: projectId,
@@ -294,10 +308,16 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
         burstCounter++;
 
         // --- SELF-HEALING DRIFT FIXER ---
-        // Periodic check every 25 characters, on newlines, or after punctuation
-        if (config.selfHealingFixer &&
-            (char == '\n' || char == ';' || charIdx % 25 == 0)) {
-          final fixes = await _healDriftIfDetected(text, charIdx + 1, config);
+        // Run conservatively only on newlines after brief pause for editor debounce to settle
+        if (config.selfHealingFixer && char == '\n') {
+          await Future<void>.delayed(const Duration(milliseconds: 280));
+          if (_isCancelled) break;
+          final fixes = await _healDriftIfDetected(
+            file.relativePath,
+            text,
+            charIdx + 1,
+            config,
+          );
           if (fixes > 0) {
             overallDriftFixes += fixes;
             state = state.copyWith(driftFixesApplied: overallDriftFixes);
@@ -388,63 +408,59 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
   }
 
   Future<int> _healDriftIfDetected(
+    String targetRelPath,
     String expectedFullContent,
     int charIdx,
     HumanizationConfig config,
   ) async {
-    if (_getEditorState == null) return 0;
-    final editorState = _getEditorState();
+    final getEditor = _getEditorState;
+    if (getEditor == null) return 0;
+    final editorState = getEditor();
     if (editorState == null) return 0;
+
+    // 1. Guard: Only proceed if active file in VS Code matches target file
+    final activeRelPath = editorState['relativePath'] as String?;
+    if (activeRelPath == null) return 0;
+    final normalizedActive = activeRelPath.replaceAll('\\', '/');
+    final normalizedTarget = targetRelPath.replaceAll('\\', '/');
+    if (!normalizedActive.endsWith(normalizedTarget) &&
+        !normalizedTarget.endsWith(normalizedActive)) {
+      return 0;
+    }
+
     final live = editorState['activeContent'] as String?;
     if (live == null || live.isEmpty) return 0;
 
     final expected = expectedFullContent.substring(0, charIdx);
     if (live == expected) return 0;
 
+    // 2. Guard: If expected starts with live, recent keystrokes are still in-transit
+    // or pending VS Code's 250ms debounce. NEVER re-type them!
+    if (expected.startsWith(live)) {
+      return 0;
+    }
+
     int fixesCount = 0;
 
-    // Case 1: Live has extra characters at the end (user typed extra text or auto-insert)
+    // Case 1: Live has extra characters at the end (e.g. auto-closing pair: extra ")" or quote)
     if (live.startsWith(expected) && live.length > expected.length) {
       int extraCount = live.length - expected.length;
-      fixesCount += extraCount;
-
-      while (extraCount > 0 && !_isCancelled) {
-        if (config.enableCtrlSpeedup && extraCount >= 4) {
-          await _hidNotifier.sendShortcut(
-            HidKeyStroke.ctrlBackspace.modifier,
-            HidKeyStroke.ctrlBackspace.keyCode,
-          );
-          extraCount = max(0, extraCount - 4);
-        } else {
+      // Only fix small local over-insertions (at most 4 characters)
+      if (extraCount <= 4) {
+        fixesCount += extraCount;
+        while (extraCount > 0 && !_isCancelled) {
           await _hidNotifier.sendShortcut(
             HidKeyStroke.backspace.modifier,
             HidKeyStroke.backspace.keyCode,
           );
           extraCount--;
-        }
-        await Future<void>.delayed(const Duration(milliseconds: 30));
-      }
-      return fixesCount;
-    }
-
-    // Case 2: Live is missing characters at the end (user accidentally backspaced / erased)
-    if (expected.startsWith(live) && expected.length > live.length) {
-      final missingText = expected.substring(live.length);
-      fixesCount += missingText.length;
-
-      for (int i = 0; i < missingText.length; i++) {
-        if (_isCancelled) break;
-        final ch = missingText[i];
-        final stroke = KeyboardScancodeMapper.charToKeyStroke(ch);
-        if (stroke != null) {
-          await _hidNotifier.sendShortcut(stroke.modifier, stroke.keyCode);
-          await Future<void>.delayed(const Duration(milliseconds: 25));
+          await Future<void>.delayed(const Duration(milliseconds: 35));
         }
       }
       return fixesCount;
     }
 
-    // Case 3: Divergence in recent line
+    // Case 2: Divergence at the end of the line
     int lcp = 0;
     final minLen = min(live.length, expected.length);
     while (lcp < minLen && live[lcp] == expected[lcp]) {
@@ -454,24 +470,17 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
     final unwantedInLive = live.length - lcp;
     final missingInExpected = expected.length - lcp;
 
-    if (unwantedInLive > 0 && unwantedInLive <= 120) {
+    // Strictly conservative: only fix tiny local typos (<= 4 chars)
+    if (unwantedInLive > 0 && unwantedInLive <= 4 && missingInExpected <= 4) {
       fixesCount += unwantedInLive + missingInExpected;
       int toDelete = unwantedInLive;
       while (toDelete > 0 && !_isCancelled) {
-        if (config.enableCtrlSpeedup && toDelete >= 4) {
-          await _hidNotifier.sendShortcut(
-            HidKeyStroke.ctrlBackspace.modifier,
-            HidKeyStroke.ctrlBackspace.keyCode,
-          );
-          toDelete = max(0, toDelete - 4);
-        } else {
-          await _hidNotifier.sendShortcut(
-            HidKeyStroke.backspace.modifier,
-            HidKeyStroke.backspace.keyCode,
-          );
-          toDelete--;
-        }
-        await Future<void>.delayed(const Duration(milliseconds: 30));
+        await _hidNotifier.sendShortcut(
+          HidKeyStroke.backspace.modifier,
+          HidKeyStroke.backspace.keyCode,
+        );
+        toDelete--;
+        await Future<void>.delayed(const Duration(milliseconds: 35));
       }
 
       for (int i = lcp; i < expected.length; i++) {
@@ -480,7 +489,7 @@ class HumanizedTyperNotifier extends StateNotifier<AutomationProgress> {
         final stroke = KeyboardScancodeMapper.charToKeyStroke(ch);
         if (stroke != null) {
           await _hidNotifier.sendShortcut(stroke.modifier, stroke.keyCode);
-          await Future<void>.delayed(const Duration(milliseconds: 25));
+          await Future<void>.delayed(const Duration(milliseconds: 30));
         }
       }
     }
@@ -537,10 +546,24 @@ final humanizedTyperProvider =
     StateNotifierProvider<HumanizedTyperNotifier, AutomationProgress>((ref) {
   final hidNotifier = ref.watch(bluetoothHidServiceProvider.notifier);
   final repository = ref.watch(projectRepositoryProvider);
+  final networkNotifier = ref.watch(companionNetworkStateProvider.notifier);
+
   return HumanizedTyperNotifier(
     hidNotifier,
     repository: repository,
     getEditorState: () =>
         ref.read(companionNetworkStateProvider).activeEditorState,
+    prepareFileInEditor: (relativePath) async {
+      try {
+        final res = await networkNotifier.sendRequest(
+          'workspace.prepareFile',
+          {'relativePath': relativePath},
+          timeout: const Duration(seconds: 4),
+        );
+        return res.type == 'response' && res.payload['success'] == true;
+      } catch (_) {
+        return false;
+      }
+    },
   );
 });

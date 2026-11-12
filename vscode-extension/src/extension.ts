@@ -67,6 +67,66 @@ export function activate(context: vscode.ExtensionContext): void {
     };
   });
 
+  serverManager.registerRequestHandler('workspace.prepareFile', async (payload) => {
+    const relPath = (payload.path || payload.relativePath) as string | undefined;
+    if (!relPath) {
+      throw new Error('Missing "path" or "relativePath" in payload');
+    }
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || folders.length === 0) {
+      throw new Error('No workspace folder open in VS Code');
+    }
+    const targetUri = validateWorkspacePath(folders[0], relPath);
+
+    let exists = false;
+    try {
+      await vscode.workspace.fs.stat(targetUri);
+      exists = true;
+    } catch {
+      exists = false;
+    }
+
+    if (!exists) {
+      const parentDirUri = vscode.Uri.joinPath(targetUri, '..');
+      await vscode.workspace.fs.createDirectory(parentDirUri);
+      await vscode.workspace.fs.writeFile(targetUri, new Uint8Array());
+    }
+
+    const doc = await vscode.workspace.openTextDocument(targetUri);
+    const editor = await vscode.window.showTextDocument(doc, {
+      preview: false,
+      viewColumn: vscode.ViewColumn.One,
+      preserveFocus: false,
+    });
+
+    const startPos = new vscode.Position(0, 0);
+    editor.selection = new vscode.Selection(startPos, startPos);
+
+    return {
+      success: true,
+      relativePath: relPath,
+      uri: targetUri.toString(),
+      created: !exists,
+    };
+  });
+
+  serverManager.registerRequestHandler('workspace.createFile', async (payload) => {
+    const relPath = (payload.path || payload.relativePath) as string | undefined;
+    if (!relPath) {
+      throw new Error('Missing "path" or "relativePath" in payload');
+    }
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || folders.length === 0) {
+      throw new Error('No workspace folder open in VS Code');
+    }
+    const targetUri = await createWorkspaceFileSafely(folders[0], relPath);
+    return {
+      success: true,
+      uri: targetUri.toString(),
+      path: relPath,
+    };
+  });
+
   // Start the WebSocket server asynchronously
   serverManager.start().catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);

@@ -31,16 +31,16 @@ class HumanizationConfig {
   final bool enableCtrlSpeedup;
 
   const HumanizationConfig({
-    this.minWpm = 30,
-    this.maxWpm = 55,
-    this.errorRatePercent = 3.5,
-    this.newlinePauseMs = 350,
-    this.punctuationPauseMs = 200,
+    this.minWpm = 35,
+    this.maxWpm = 65,
+    this.errorRatePercent = 1.5,
+    this.newlinePauseMs = 250,
+    this.punctuationPauseMs = 120,
     this.enableThinkingPauses = true,
-    this.autoIndentationAware = true,
-    this.autoBracketAware = true,
-    this.selfHealingFixer = true,
-    this.enableCtrlSpeedup = true,
+    this.autoIndentationAware = false,
+    this.autoBracketAware = false,
+    this.selfHealingFixer = false,
+    this.enableCtrlSpeedup = false,
   });
 
   HumanizationConfig copyWith({

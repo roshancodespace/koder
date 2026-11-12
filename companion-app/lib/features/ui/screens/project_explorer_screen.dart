@@ -9,6 +9,8 @@ import '../../automation/models/humanization_config.dart';
 import '../../automation/services/humanized_typer_service.dart';
 import '../../bluetooth_hid/bluetooth_hid_service.dart';
 import '../../bluetooth_hid/models/hid_state.dart';
+import '../../network/models/connection_state.dart';
+import '../../network/providers/websocket_provider.dart';
 import '../../project/models/project_models.dart';
 import '../../project/providers/project_provider.dart';
 
@@ -705,16 +707,23 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
         (resumeCheckpoint.currentFileIndex > 0 ||
             resumeCheckpoint.characterOffset > 0);
 
+    final networkState = ref.read(companionNetworkStateProvider);
+    final isWsConnected =
+        networkState.status == CompanionConnectionStatus.connected;
+
     // MANDATORY FOCUS WARNING MODAL
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded,
-            size: 48, color: Colors.amber),
+        icon: Icon(
+          isWsConnected ? Icons.auto_awesome_rounded : Icons.warning_amber_rounded,
+          size: 44,
+          color: isWsConnected ? Colors.blue : Colors.amber,
+        ),
         title: Text(isResuming
             ? 'Resume Auto-Typing in VS Code'
-            : 'Focus VS Code First!'),
+            : (isWsConnected ? 'Ready to Auto-Type' : 'Focus VS Code Editor')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -722,27 +731,35 @@ class _ProjectExplorerScreenState extends ConsumerState<ProjectExplorerScreen> {
             Text(
               isResuming
                   ? 'Resuming from File ${resumeCheckpoint.currentFileIndex + 1} (${resumeCheckpoint.activeFileName}) at char offset ${resumeCheckpoint.characterOffset}.\n\n'
-                      '1. Open VS Code on your computer.\n'
-                      '2. Open ${resumeCheckpoint.activeFileName} and focus the editor.\n'
-                      '3. Phone will resume typing seamlessly from where it stopped.'
-                  : 'Before starting humanized auto-typing:\n\n'
-                      '1. Open VS Code on your computer.\n'
-                      '2. Make sure the correct workspace folder is open.\n'
-                      '3. Click inside the VS Code window so it is active and focused.\n\n'
-                      'The phone will begin sending physical keyboard keystrokes to your workstation.',
+                      'Make sure VS Code is active and focused on your screen.'
+                  : (isWsConnected
+                      ? 'VS Code Companion is connected over WebSocket!\n\n'
+                          '1. Keep your VS Code window active and visible.\n'
+                          '2. The companion will automatically open and prepare each file in VS Code.\n'
+                          '3. Physical keyboard keystrokes will be typed smoothly at natural speed.'
+                      : 'Before starting humanized auto-typing:\n\n'
+                          '1. Open VS Code on your computer.\n'
+                          '2. Open ${filesToAutomate.first.relativePath} and focus the editor.\n'
+                          '3. The phone will begin sending physical keyboard keystrokes to your workstation.'),
               style: const TextStyle(fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.amber.withAlpha(40),
-                borderRadius: BorderRadius.circular(8),
+                color: isWsConnected
+                    ? Colors.blue.withAlpha(25)
+                    : Colors.amber.withAlpha(35),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isWsConnected
+                      ? Colors.blue.withAlpha(60)
+                      : Colors.amber.withAlpha(70),
+                ),
               ),
               child: Text(
-                'Will type ${filesToAutomate.length} files with ${_humanizationConfig.minWpm}-${_humanizationConfig.maxWpm} WPM, ${_humanizationConfig.errorRatePercent.toStringAsFixed(1)}% typos${_humanizationConfig.selfHealingFixer ? ', self-healing fixer active' : ''}.',
-                style:
-                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                'Will type ${filesToAutomate.length} files (${_humanizationConfig.minWpm}-${_humanizationConfig.maxWpm} WPM, ${_humanizationConfig.errorRatePercent.toStringAsFixed(1)}% typos)${isWsConnected ? ' with auto-file opening' : ''}.',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
             ),
           ],
