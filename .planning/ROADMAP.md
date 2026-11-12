@@ -28,8 +28,8 @@ The VS Code Companion System is developed as two completely independent subproje
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Bootstrap `companion-app/` with Flutter Material 3 skeleton, dependencies, lint rules, and `.github/workflows/ci.yml`.
-- [ ] 01-02: Bootstrap `vscode-extension/` with TypeScript configuration, package manifest, test runner, and `.github/workflows/ci.yml`.
+- [ ] 01-01-PLAN.md — Bootstrap companion-app with Flutter Material 3 skeleton, dependencies, lint rules, and .github/workflows/ci.yml
+- [ ] 01-02-PLAN.md — Bootstrap vscode-extension with TypeScript configuration, package manifest, test runner, and .github/workflows/ci.yml
 
 ### Phase 2: Android Bluetooth HID Platform Channel & Foreground Lifecycle
 **Goal**: Implement and verify the native Kotlin Bluetooth HID Device platform channel, sending standard keyboard scan codes and maintaining an active session via an Android 14+ compliant foreground service.
@@ -124,3 +124,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. Bi-Directional WebSocket Protocol & Networking Engine | 0/2 | Not started | - |
 | 5. Android Companion UI & Project Management Engine | 0/3 | Not started | - |
 | 6. End-to-End Integration, Release Automation & Verification | 0/2 | Not started | - |
+
