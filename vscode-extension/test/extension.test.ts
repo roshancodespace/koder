@@ -4,6 +4,16 @@ import * as vscode from 'vscode';
 suite('VS Code Companion Extension Test Suite', () => {
   vscode.window.showInformationMessage('Start all tests.');
 
+  suiteSetup(async () => {
+    let ext = vscode.extensions.getExtension('companion.vscode-companion');
+    if (!ext) {
+      ext = vscode.extensions.all.find((e) => e.packageJSON?.name === 'vscode-companion');
+    }
+    if (ext && !ext.isActive) {
+      await ext.activate();
+    }
+  });
+
   test('Status command should be registered in commands list', async () => {
     const commands = await vscode.commands.getCommands(true);
     assert.ok(

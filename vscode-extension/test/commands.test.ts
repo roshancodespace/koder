@@ -11,6 +11,16 @@ suite('Commands & Interactive Creation Workflow Test Suite', () => {
     index: 0,
   };
 
+  suiteSetup(async () => {
+    let ext = vscode.extensions.getExtension('companion.vscode-companion');
+    if (!ext) {
+      ext = vscode.extensions.all.find((e) => e.packageJSON?.name === 'vscode-companion');
+    }
+    if (ext && !ext.isActive) {
+      await ext.activate();
+    }
+  });
+
   test('validateFileInput correctly validates file paths', () => {
     assert.strictEqual(validateFileInput(''), 'File path cannot be empty');
     assert.strictEqual(validateFileInput('   '), 'File path cannot be empty');
@@ -20,7 +30,15 @@ suite('Commands & Interactive Creation Workflow Test Suite', () => {
   });
 
   test('vscode-companion.createFile command should be registered in vscode.commands', async () => {
-    const commands = await vscode.commands.getCommands(true);
+    let commands = await vscode.commands.getCommands(true);
+    if (!commands.includes('vscode-companion.createFile')) {
+      const ext = vscode.extensions.getExtension('companion.vscode-companion') ||
+        vscode.extensions.all.find((e) => e.packageJSON?.name === 'vscode-companion');
+      if (ext && !ext.isActive) {
+        await ext.activate();
+      }
+      commands = await vscode.commands.getCommands(true);
+    }
     assert.ok(
       commands.includes('vscode-companion.createFile'),
       'Command vscode-companion.createFile should be registered'
