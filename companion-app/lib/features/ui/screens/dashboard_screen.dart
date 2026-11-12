@@ -6,6 +6,8 @@ import '../../bluetooth_hid/models/hid_state.dart';
 import '../../foreground_service/foreground_service_manager.dart';
 import '../../network/models/connection_state.dart';
 import '../../network/providers/websocket_provider.dart';
+import '../../network/screens/qr_scanner_screen.dart';
+import '../../updater/update_checker_service.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -34,6 +36,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     await hidNotifier.checkCapability();
     await hidNotifier.getBondedDevices();
     final batteryIgnored = await serviceNotifier.isBatteryOptimizationIgnored();
+    ref.read(updateCheckerProvider.notifier).checkForUpdates();
 
     if (mounted) {
       setState(() {
@@ -65,11 +68,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final errorCount = (diagnostics?['errorCount'] as int?) ?? 0;
     final warningCount = (diagnostics?['warningCount'] as int?) ?? 0;
 
+    final updateState = ref.watch(updateCheckerProvider);
+    final updateInfo = updateState.valueOrNull;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.system_update_alt),
+            tooltip: 'Check for Updates',
+            onPressed: () async {
+              final info = await ref
+                  .read(updateCheckerProvider.notifier)
+                  .checkForUpdates();
+              if (!info.hasUpdate && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Koder is up to date! (v0.2.0)'),
+                  ),
+                );
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh Status',
@@ -83,6 +105,57 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
+              // In-App Update Banner
+              if (updateInfo != null && updateInfo.hasUpdate) ...[
+                Card(
+                  color: Colors.green.shade900,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.system_update,
+                            color: Colors.white, size: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Update Available: v${updateInfo.latestVersion}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Current: v${updateInfo.currentVersion} • Tap to view & install',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        FilledButton.tonal(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF0D3315),
+                          ),
+                          onPressed: () =>
+                              _showUpdateDialog(context, updateInfo),
+                          child: const Text('Update'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               // 1. Connection Status Chips
               Text(
                 'Connection Status',
@@ -266,8 +339,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const SizedBox(height: 8),
               FilledButton.tonalIcon(
                 icon: const Icon(Icons.qr_code_scanner),
-                label: const Text('Quick Connect with URL / QR Payload'),
-                onPressed: () => _showQuickConnectDialog(context, ref),
+                label: const Text('Scan QR Code with Camera'),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const QrScannerScreen(),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 24),
 
@@ -709,67 +788,74 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  void _showQuickConnectDialog(BuildContext context, WidgetRef ref) {
-    final controller = TextEditingController();
-
+  void _showUpdateDialog(BuildContext context, UpdateInfo updateInfo) {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Quick Connect from VS Code'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Paste the WebSocket URL or QR Code text shown in VS Code:',
-              style: TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                hintText: 'ws://192.168.1.15:38848?token=XYZ',
-                border: OutlineInputBorder(),
+        icon: const Icon(Icons.system_update, size: 36, color: Colors.green),
+        title: Text('New Version v${updateInfo.latestVersion} Available'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Current version: v${updateInfo.currentVersion}\nLatest version: v${updateInfo.latestVersion}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              icon: const Icon(Icons.paste, size: 16),
-              label: const Text('Paste from Clipboard'),
-              onPressed: () async {
-                final data = await Clipboard.getData(Clipboard.kTextPlain);
-                if (data?.text != null) {
-                  controller.text = data!.text!.trim();
-                }
-              },
-            ),
-          ],
+              const SizedBox(height: 12),
+              const Text(
+                'Release Notes:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                updateInfo.releaseNotes.isNotEmpty
+                    ? updateInfo.releaseNotes
+                    : 'Bug fixes and performance improvements.',
+                style: const TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              if (updateInfo.downloadUrl.isNotEmpty) ...[
+                const Text(
+                  'Download Link:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 4),
+                SelectableText(
+                  updateInfo.downloadUrl,
+                  style: const TextStyle(fontSize: 11, color: Colors.blue),
+                ),
+              ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: const Text('Dismiss'),
           ),
-          ElevatedButton(
-            onPressed: () {
-              final parsed = CompanionConnectionConfig.parseUriOrJson(
-                  controller.text.trim());
-              if (parsed != null) {
-                ref
-                    .read(companionNetworkStateProvider.notifier)
-                    .connectWithConfig(parsed);
+          if (updateInfo.downloadUrl.isNotEmpty)
+            FilledButton.icon(
+              icon: const Icon(Icons.download),
+              label: const Text('Download APK'),
+              onPressed: () async {
                 Navigator.pop(ctx);
-              } else {
+                final uri = Uri.parse(updateInfo.downloadUrl);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Invalid WebSocket URL or QR format'),
+                  SnackBar(
+                    duration: const Duration(seconds: 8),
+                    content: Text('Downloading update from ${uri.host}...'),
+                    action: SnackBarAction(
+                      label: 'Copy URL',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: updateInfo.downloadUrl));
+                      },
+                    ),
                   ),
                 );
-              }
-            },
-            child: const Text('Connect'),
-          ),
+              },
+            ),
         ],
       ),
     );

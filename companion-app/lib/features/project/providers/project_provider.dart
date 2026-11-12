@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../automation/services/humanized_typer_service.dart';
 import '../data/project_repository.dart';
 import '../models/project_models.dart';
 import '../services/project_importer_service.dart';
@@ -172,6 +174,120 @@ class ProjectNotifier extends StateNotifier<ProjectExplorerState> {
         errorMessage: e.toString(),
       );
     }
+  }
+
+  Future<void> importProjectFromZipFile(String name, String filePath) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final file = File(filePath);
+      final bytes = await file.readAsBytes();
+      final project = await _importer.importFromZipBytes(name, bytes);
+      await loadProjects();
+      await selectProject(project.id);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  Future<void> importProjectFromRemoteZipUrl(String name, Uri url) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final project = await _importer.importFromRemoteZipUrl(name, url);
+      await loadProjects();
+      await selectProject(project.id);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  Future<void> importProjectFromGitHub(
+    String owner,
+    String repo, {
+    String branch = 'main',
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final project = await _importer.importFromGitHub(owner, repo, branch: branch);
+      await loadProjects();
+      await selectProject(project.id);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  Future<void> selectAllNodes(bool isExcluded) async {
+    final updatedNodes = <FileNodeEntity>[];
+    for (final node in state.nodes) {
+      if (node.isExcluded != isExcluded) {
+        await _repository.updateNodeExclusion(node.id, isExcluded);
+        updatedNodes.add(node.copyWith(isExcluded: isExcluded));
+      } else {
+        updatedNodes.add(node);
+      }
+    }
+    state = state.copyWith(nodes: updatedNodes);
+  }
+
+  Future<void> excludeCommonPatterns() async {
+    final commonPatterns = [
+      'node_modules',
+      '.git',
+      '.dart_tool',
+      'build',
+      '.vscode',
+      'dist',
+      '.idea',
+      '__pycache__',
+      '.gradle',
+    ];
+
+    final updatedNodes = <FileNodeEntity>[];
+    for (final node in state.nodes) {
+      final shouldExclude = commonPatterns.any(
+        (p) => node.path.contains('/$p/') || node.path.startsWith('$p/') || node.path == p,
+      );
+      if (shouldExclude && !node.isExcluded) {
+        await _repository.updateNodeExclusion(node.id, true);
+        updatedNodes.add(node.copyWith(isExcluded: true));
+      } else {
+        updatedNodes.add(node);
+      }
+    }
+    state = state.copyWith(nodes: updatedNodes);
+  }
+
+  Future<List<FileToType>> getIncludedFilesForAutomation() async {
+    final active = state.activeProject;
+    if (active == null) return [];
+
+    final effectiveExclusions = getEffectiveExclusions();
+    final filesToAutomate = <FileToType>[];
+
+    // Filter non-excluded files (not directories)
+    final validFiles = state.nodes.where((node) {
+      if (node.isDirectory) return false;
+      final isExcluded = effectiveExclusions[node.path] ?? node.isExcluded;
+      return !isExcluded;
+    }).toList();
+
+    for (final node in validFiles) {
+      final content = await _importer.getFileContent(active.rootPath, node.path);
+      filesToAutomate.add(FileToType(
+        relativePath: node.path,
+        content: content,
+      ));
+    }
+
+    return filesToAutomate;
   }
 
   Future<void> importProjectFromDirectory(String name, String path) async {

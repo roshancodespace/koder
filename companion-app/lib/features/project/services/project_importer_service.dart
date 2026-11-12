@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import '../data/project_repository.dart';
 import '../models/project_models.dart';
 import 'tree_parser_service.dart';
@@ -45,29 +46,88 @@ class ProjectImporterService {
       }
     }
 
-    return _persistProject(
-        projectName, 'local_dir', directoryPath, relativePaths);
+    final projectId = 'proj-${DateTime.now().microsecondsSinceEpoch}';
+    return _persistProjectWithId(
+      projectId,
+      projectName,
+      'local_dir',
+      directoryPath,
+      relativePaths,
+    );
   }
 
-  /// Imports a project from in-memory ZIP archive bytes (e.g. from file picker or download).
+  /// Imports a project from in-memory ZIP archive bytes (e.g. from file picker or download)
+  /// and extracts the files to persistent storage for automation typing.
   Future<ProjectEntity> importFromZipBytes(
     String projectName,
     List<int> zipBytes, {
     String source = 'local_zip',
-    String rootPath = '',
+    String? customRootPath,
   }) async {
     final archive = ZipDecoder().decodeBytes(zipBytes, verify: false);
+    final projectId = 'proj-${DateTime.now().microsecondsSinceEpoch}';
+
+    Directory targetDir;
+    if (customRootPath != null && customRootPath.isNotEmpty) {
+      targetDir = Directory(customRootPath);
+      if (!await targetDir.exists()) {
+        await targetDir.create(recursive: true);
+      }
+    } else {
+      try {
+        final appDir = await getApplicationDocumentsDirectory();
+        targetDir = Directory('${appDir.path}/koder_projects/$projectId');
+        if (!await targetDir.exists()) {
+          await targetDir.create(recursive: true);
+        }
+      } catch (_) {
+        targetDir = Directory('${Directory.systemTemp.path}/koder_projects/$projectId');
+        if (!await targetDir.exists()) {
+          await targetDir.create(recursive: true);
+        }
+      }
+    }
+
     final relativePaths = <String>[];
 
     for (final file in archive) {
       final sanitized = _sanitizeZipPath(file.name);
       if (sanitized.isNotEmpty) {
         relativePaths.add(sanitized);
+        if (file.isFile) {
+          try {
+            final content = file.content as List<int>;
+            final outFile = File('${targetDir.path}/$sanitized');
+            await outFile.parent.create(recursive: true);
+            await outFile.writeAsBytes(content);
+          } catch (_) {
+            // Safe fallback if archive header has size mismatch
+          }
+        }
       }
     }
 
-    final effectiveRoot = rootPath.isNotEmpty ? rootPath : '/zip/$projectName';
-    return _persistProject(projectName, source, effectiveRoot, relativePaths);
+    return _persistProjectWithId(
+      projectId,
+      projectName,
+      source,
+      targetDir.path,
+      relativePaths,
+    );
+  }
+
+  /// Reads the text content of an extracted project file.
+  Future<String> getFileContent(
+    String projectRootPath,
+    String relativePath,
+  ) async {
+    try {
+      final file = File('$projectRootPath/$relativePath');
+      if (await file.exists()) {
+        return await file.readAsString();
+      }
+    } catch (_) {}
+    return '';
   }
 
   /// Downloads and imports a project from a remote ZIP URL over HTTPS.
@@ -91,7 +151,6 @@ class ProjectImporterService {
       projectName,
       response.bodyBytes,
       source: 'remote_zip',
-      rootPath: url.toString(),
     );
   }
 
@@ -122,18 +181,17 @@ class ProjectImporterService {
       '$owner/$repo',
       response.bodyBytes,
       source: 'github',
-      rootPath: 'github.com/$owner/$repo',
     );
   }
 
-  Future<ProjectEntity> _persistProject(
+  Future<ProjectEntity> _persistProjectWithId(
+    String projectId,
     String name,
     String source,
     String rootPath,
     List<String> paths,
   ) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final projectId = 'proj-${DateTime.now().microsecondsSinceEpoch}';
 
     final project = ProjectEntity(
       id: projectId,
